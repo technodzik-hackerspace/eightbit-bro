@@ -1,26 +1,24 @@
 use image::{Rgb, RgbImage};
 
-use crate::{Geometry, Palette, Rect};
+use crate::{Geometry, Rect};
 
 pub const W: usize = 256;
 pub const H: usize = 240;
-/// Palette index of a pixel that matched no palette colour well enough (JPEG ringing at
-/// colour edges). Matchers ignore it.
-pub const UNSURE: u8 = 0xFF;
+
+/// A run of fully black lines at least this long makes a frame "blanked" (see `is_blanked`).
+const BLANK_LINES: usize = 48;
 
 /// The frame mapped back to the console's 256×240 pixels (tech design §3.3).
 #[derive(Clone)]
 pub struct NesCanvas {
-    /// Palette index per pixel, `UNSURE` when unsure or when sampled without a palette.
-    pub px: Box<[u8]>,
-    /// The sampled colours.
+    /// The colour sampled at the centre of each console pixel, row by row.
     pub rgb: Box<[[u8; 3]]>,
 }
 
 impl NesCanvas {
-    /// Samples the centre of every NES pixel. Without a palette only `rgb` is filled.
-    /// Panics unless `geo.fits(img.width(), img.height())`.
-    pub fn sample(img: &RgbImage, geo: &Geometry, palette: Option<&Palette>) -> Self {
+    /// Samples the centre of every console pixel. Panics unless
+    /// `geo.fits(img.width(), img.height())`.
+    pub fn sample(img: &RgbImage, geo: &Geometry) -> Self {
         let mut rgb = vec![[0u8; 3]; W * H].into_boxed_slice();
         for ny in 0..H as u32 {
             for nx in 0..W as u32 {
@@ -28,25 +26,42 @@ impl NesCanvas {
                 rgb[ny as usize * W + nx as usize] = img.get_pixel(x, y).0;
             }
         }
-        let px = match palette {
-            Some(p) => rgb.iter().map(|c| p.quantize(*c)).collect(),
-            None => vec![UNSURE; W * H].into_boxed_slice(),
-        };
-        NesCanvas { px, rgb }
+        NesCanvas { rgb }
     }
 
     pub fn rgb_at(&self, x: u32, y: u32) -> [u8; 3] {
         self.rgb[y as usize * W + x as usize]
     }
 
-    pub fn px_at(&self, x: u32, y: u32) -> u8 {
-        self.px[y as usize * W + x as usize]
+    /// Brightness (BT.601 luma). JPEG keeps it at full resolution, unlike colour (4:2:2), so
+    /// shapes are matched on it.
+    pub fn luma_at(&self, x: u32, y: u32) -> u8 {
+        luma(self.rgb_at(x, y))
+    }
+
+    /// Bright pixel: text, outlines. The mask probes and the menu font compare these.
+    pub fn bright_at(&self, x: u32, y: u32) -> bool {
+        self.luma_at(x, y) > BRIGHT
     }
 
     /// Almost every pixel is black (PRD R4).
     pub fn is_black(&self) -> bool {
-        let dark = self.rgb.iter().filter(|c| c.iter().all(|&v| v < 48)).count();
+        let dark = self.rgb.iter().filter(|c| is_dark(c)).count();
         dark * 100 >= self.rgb.len() * 98
+    }
+
+    /// Black, or partly black: a long run of fully black lines. Games switch rendering off
+    /// while they load the next screen, and a frame caught while rendering switches on or off
+    /// partway down shows part picture, part black. Treated like black frames (PRD R4).
+    pub fn is_blanked(&self) -> bool {
+        let mut run = 0;
+        for line in self.rgb.chunks(W) {
+            run = if line.iter().all(is_dark) { run + 1 } else { 0 };
+            if run >= BLANK_LINES {
+                return true;
+            }
+        }
+        self.is_black()
     }
 
     /// Perceptual hash (dHash): the canvas shrunk to 9×8 brightness cells, one bit per pair of
@@ -77,6 +92,17 @@ impl NesCanvas {
     }
 }
 
+/// Luma above this is "bright".
+const BRIGHT: u8 = 150;
+
+pub fn luma([r, g, b]: [u8; 3]) -> u8 {
+    ((r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000) as u8
+}
+
+fn is_dark(c: &[u8; 3]) -> bool {
+    c.iter().all(|&v| v < 48)
+}
+
 /// Number of differing bits between two hashes.
 pub fn hamming(a: u64, b: u64) -> u32 {
     (a ^ b).count_ones()
@@ -90,30 +116,44 @@ mod tests {
     #[test]
     fn black_frame_is_black() {
         let img = RgbImage::from_pixel(1280, 720, Rgb([8, 6, 10]));
-        assert!(NesCanvas::sample(&img, &Geometry::MS2109_720P, None).is_black());
+        let canvas = NesCanvas::sample(&img, &Geometry::MS2109_720P);
+        assert!(canvas.is_black() && canvas.is_blanked());
+    }
+
+    #[test]
+    fn half_black_frame_is_blanked_not_black() {
+        let (mut img, geo, _) = fixtures::tetris();
+        for y in 0..300 {
+            for x in 0..1280 {
+                img.put_pixel(x, y, Rgb([4, 4, 4]));
+            }
+        }
+        let canvas = NesCanvas::sample(&img, &geo);
+        assert!(canvas.is_blanked() && !canvas.is_black());
+    }
+
+    #[test]
+    fn tetris_is_neither() {
+        let (_, _, canvas) = fixtures::tetris();
+        assert!(!canvas.is_black() && !canvas.is_blanked());
     }
 
     #[test]
     fn dhash_tells_frames_apart_but_not_noise() {
-        let (img, geo, canvas) = fixtures::tetris_1p();
+        let (img, geo, canvas) = fixtures::tetris();
         let mut noisy = img.clone();
         for (i, p) in noisy.pixels_mut().enumerate() {
             p.0[0] = p.0[0].saturating_add((i % 7) as u8);
         }
-        let noisy = NesCanvas::sample(&noisy, &geo, None);
-        assert!(hamming(canvas.dhash(), noisy.dhash()) <= 2);
+        let noise = hamming(canvas.dhash(), NesCanvas::sample(&noisy, &geo).dhash());
+        // Within the review queue's "same screen" distance.
+        assert!(noise <= 6, "{noise}");
 
-        let mut gradient = RgbImage::new(896, 720);
+        let mut gradient = RgbImage::new(1280, 720);
         for (x, _, p) in gradient.enumerate_pixels_mut() {
-            *p = Rgb([(x / 4) as u8, 0, 0]);
+            *p = Rgb([(x / 5) as u8, 0, 0]);
         }
-        let other = NesCanvas::sample(&gradient, &geo, None);
-        assert!(hamming(canvas.dhash(), other.dhash()) > 16);
-    }
-
-    #[test]
-    fn tetris_is_not_black() {
-        let (_, _, canvas) = fixtures::tetris_1p();
-        assert!(!canvas.is_black());
+        let other = hamming(canvas.dhash(), NesCanvas::sample(&gradient, &geo).dhash());
+        assert!(other > 16, "{other}");
     }
 }

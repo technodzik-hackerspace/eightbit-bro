@@ -6,6 +6,8 @@
 
 mod reduce;
 mod state;
+mod title;
 
 pub use reduce::{Event, EventKind, reduce};
 pub use state::{ConsoleState, GameDetail, GameId, MenuState, Observation, Seen};
+pub use title::{TITLES, Title};

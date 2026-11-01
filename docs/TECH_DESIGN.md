@@ -65,9 +65,11 @@ disappears.
 
 YUYV (raw) is useless: ≤10 fps at 720p.
 
-At 720p the console picture is **4:3, pillarboxed at x = 192…1088 (896×720)**. Vertically
-that's exactly **3 capture lines per NES line** (720 / 240); horizontally 3.5 px per NES pixel
-(896 / 256). → **Chosen capture mode: MJPEG 1280×720 @60.**
+At 720p the console picture spans **x = 188…1098 (910 px), full height**: exactly
+**3 capture lines per NES line** (720 / 240) and **3.555 px per NES pixel** horizontally,
+nearest-neighbour scaled (columns 3 or 4 px wide). Measured from the pixel edges of menu text
+(D7); the visible pillarbox edge (≈192…1088) is not the picture edge. → **Chosen capture mode:
+MJPEG 1280×720 @60.**
 
 The very first frame after a mode switch can be garbage (two half-images glued together),
 so frames whose decode fails are counted and dropped.
@@ -146,25 +148,22 @@ gameplay frame" is met.
 
 ```rust
 pub struct NesCanvas {           // 256 × 240
-    pub px: Box<[u8]>,           // palette index per pixel, or 0xFF = "unsure"
-    pub rgb: Box<[[u8; 3]]>,     // the sampled colours (POI optimization, review queue PNG)
+    pub rgb: Box<[[u8; 3]]>,     // colour at the centre of each console pixel
 }
 ```
 
 1. Decode the JPEG at **½ scale** with libjpeg-turbo DCT scaling (640×360 → the picture area is
-   448×360, i.e. 1.75 × 1.5 px per NES pixel).
-2. Use a **geometry calibration** (crop offset plus scale, per capture mode, stored in config,
-   verified by fixtures) to sample the centre of each NES pixel.
-3. Quantize each sample to the nearest colour of the **console's palette** (learned once from
-   fixtures, about 50 distinct colours). Samples too far from any palette colour (JPEG ringing
-   at colour edges) become `0xFF` and are ignored by matchers.
+   455×360, i.e. 1.78 × 1.5 px per NES pixel).
+2. Use the **geometry calibration** (picture rectangle per capture mode, in config, verified by
+   fixtures) to sample the centre of each NES pixel.
 
-Cost: one ½-scale decode (~3 ms) plus 61 k samples (<1 ms). Perception can also run on a
-region-only decode, if needed.
+Cost on the Pi: ~11 ms per frame in total, 60 fps with ~0.7 core.
 
-Risk: chroma subsampling (4:2:2) and the 3.5× horizontal scale blur colours at edges. The
-matchers therefore tolerate a configurable share of `0xFF` pixels per probe, and every
-recognizer is tested against real captured JPEGs, not clean emulator screenshots.
+**Match shapes on brightness, not colour.** JPEG 4:2:2 halves the colour resolution, and the
+console's scaler shifts the picture by fractions of a line between screens, so colours at
+edges are unreliable. Probes compare *which pixels are bright* (luma > 150), allow a small
+share of differing pixels and a vertical shift of up to 2 lines. There is no palette
+quantization. Every recognizer is tested against real captured JPEGs.
 
 ### 3.4 Perception (stateless)
 
@@ -182,14 +181,22 @@ pub trait GameRecognizer: Send + Sync {
 }
 ```
 
-- **Black:** almost all canvas pixels are the palette's black.
-- **Menu:** blue background plus the "300 IN 1" header tiles. Then OCR of the 20 numbered rows
-  with the menu font, plus the cursor row, which gives `page`, `cursor_index` and
-  `highlighted_game` (looked up in the game catalog).
-- **Games:** each recognizer has signature probes (e.g. Tetris: "SCORE"/"LINES"/"LEVEL"
-  label tiles at known positions in any of its layouts). `claims()` must hold on **every**
-  screen of that game we know about, or the recognizer adds more signatures (title screen,
-  gameplay screen).
+- **Black:** almost all pixels are black, **or blanked**: a run of ≥ 48 fully black lines.
+  Games switch rendering off while loading the next screen; a frame caught while rendering
+  switches on/off partway down is part picture, part black (seen between menu and Tetris).
+- **Menu:** the "300 IN 1 VER2.0" header (bright mask, ≤ 12 % off) and ≥ 50 % of the list area
+  in the menu's blue. The scenery below scrolls and the windmills turn, so they are not used.
+  The menu is then **read on a full-resolution decode** (at ½ scale some glyphs differ by one
+  pixel): text cells at x = 7 + 8j, y = 32 + 8·row plus a per-frame offset (the menu scrolls by
+  a line between screens), each matched against the 42-glyph menu font (`bro-games/src/font.rs`,
+  ≤ 1 pixel off and unambiguous, else `?`), and the red arrow in cell column 2. The page comes
+  from the number on the cursor's row; `highlighted` is the catalog `Title` when number and
+  name both match (`bro-heart/src/title.rs`). Pages are redrawn row by row, so a frame can show
+  two pages; only rows whose number fits their position count. The full decode runs only when
+  the list area changes.
+- **Games:** each recognizer has signature probes (Tetris: the "SCORE"/"LINES"/"LEVEL" labels,
+  identical in gameplay, game select and level select). `claims()` must hold on **every**
+  screen of that game we know about, or the recognizer adds more signatures.
 - **Hint for speed:** `perceive(canvas, hint: Option<GameId>)` tries the hinted game first.
   **Invariant, tested:** the hint changes speed, never the result. `perceive(c, Some(g)) ==
   perceive(c, None)` for every fixture. That's how PRD R3 ("stateless classification
@@ -240,8 +247,8 @@ On save the server **optimizes** the rectangle (`bro_vision::optimize_poi`):
 
 Both rectangles are stored and drawn over the frame, so the owner sees what will be checked.
 The agent reads the annotations through the API (`GET /api/review/{id}`: frame JPEG, canvas
-PNG, POIs, comments) and turns each optimized POI into a `Probe`: the canvas palette indices
-inside it, matched exactly on sure pixels, with a capped share of unsure ones (R1).
+PNG, POIs, comments) and turns each optimized POI into a `Probe`: the bright mask inside it,
+cut from a reference fixture, with a capped share of differing pixels (R1).
 
 ### 3.7 Tetris module
 
@@ -400,7 +407,7 @@ eightbit-bro/
 ├── Cargo.toml                 # workspace
 ├── crates/
 │   ├── bro-heart/             # state types, reducer, events — pure, no IO
-│   ├── bro-vision/            # JPEG decode, NES canvas, palette, probes, POI, tile OCR
+│   ├── bro-vision/            # NES canvas, geometry, probes, POI
 │   ├── bro-games/             # menu, tetris (deep), mario, battle_city, dr_mario, jewelry
 │   ├── bro-capture/           # sources, ring buffer
 │   ├── bro-record/            # cut list, CFR timeline, ffmpeg encoder
@@ -481,4 +488,4 @@ password and Telegram details on the setup page. No secrets to prepare.
 | D4 | Pi NixOS 24.11 (EOL) → 26.05 | **Done (2026-11-01):** appliance layout (§10) deployed, rebooted into mainline 6.18.60; capture still 720p at 59.6 fps |
 | D5 | Dashboard stack | **Done:** static pages + vanilla JS over the JSON API (no JS build); the POI editor needed client-side drawing anyway |
 | D6 | Raw full-game captures for tests | Stored on the NAS, canvas sequences in git |
-| D7 | Geometry calibration | With the 896×720 crop, text in the Tetris demo starts ~3 NES px right of the 8×8 tile grid, so tile-snapped POIs come out one tile wider. Calibrate the crop offset on menu/HUD fixtures in M1 so tile edges land on multiples of 8 |
+| D7 | Geometry calibration | **Done:** x = 188…1098 fitted to the pixel edges of menu text; menu text now sits on the 8×8 grid. Tetris draws its HUD 3 px right of the grid (its own scroll), so POIs there snap one tile wider |

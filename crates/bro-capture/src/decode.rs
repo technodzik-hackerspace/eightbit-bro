@@ -5,38 +5,52 @@ use turbojpeg::{Decompressor, Image, PixelFormat, ScalingFactor};
 use crate::{FrameData, RawFrame};
 
 /// Decodes frames for perception. JPEGs are decoded at ½ scale with libjpeg-turbo's DCT
-/// scaling: a quarter of the pixels, still 1.75 × 1.5 px per NES pixel at 720p
-/// (tech design §3.3).
+/// scaling: a quarter of the pixels, still 1.78 × 1.5 px per NES pixel at 720p
+/// (tech design §3.3). Text (the menu) is read at full resolution.
 pub struct Decoder {
-    tj: Decompressor,
+    half: Decompressor,
+    full: Decompressor,
 }
 
 impl Decoder {
     pub fn new() -> Result<Decoder> {
-        let mut tj = Decompressor::new()?;
-        tj.set_scaling_factor(ScalingFactor::ONE_HALF)?;
-        Ok(Decoder { tj })
+        let mut half = Decompressor::new()?;
+        half.set_scaling_factor(ScalingFactor::ONE_HALF)?;
+        Ok(Decoder { half, full: Decompressor::new()? })
     }
 
     /// The pixels and the factor they are scaled down by (2 for JPEG, 1 for PNG).
     pub fn decode(&mut self, frame: &RawFrame) -> Result<(RgbImage, u32)> {
-        let FrameData::Jpeg(jpeg) = &frame.data else {
-            return Ok((frame.decode()?, 1));
-        };
-        let header = self.tj.read_header(jpeg)?.scaled(ScalingFactor::ONE_HALF);
-        let (width, height) = (header.width, header.height);
-        let mut pixels = vec![0u8; 3 * width * height];
-        let image = Image {
-            pixels: &mut pixels[..],
-            width,
-            pitch: 3 * width,
-            height,
-            format: PixelFormat::RGB,
-        };
-        self.tj.decompress(jpeg, image)?;
-        let img = RgbImage::from_raw(width as u32, height as u32, pixels).expect("buffer size");
-        Ok((img, 2))
+        match &frame.data {
+            FrameData::Jpeg(jpeg) => {
+                Ok((decompress(&mut self.half, jpeg, ScalingFactor::ONE_HALF)?, 2))
+            }
+            FrameData::Png(_) => Ok((frame.decode()?, 1)),
+        }
     }
+
+    /// Full resolution.
+    pub fn decode_full(&mut self, frame: &RawFrame) -> Result<RgbImage> {
+        match &frame.data {
+            FrameData::Jpeg(jpeg) => decompress(&mut self.full, jpeg, ScalingFactor::ONE),
+            FrameData::Png(_) => frame.decode(),
+        }
+    }
+}
+
+fn decompress(tj: &mut Decompressor, jpeg: &[u8], scale: ScalingFactor) -> Result<RgbImage> {
+    let header = tj.read_header(jpeg)?.scaled(scale);
+    let (width, height) = (header.width, header.height);
+    let mut pixels = vec![0u8; 3 * width * height];
+    let image = Image {
+        pixels: &mut pixels[..],
+        width,
+        pitch: 3 * width,
+        height,
+        format: PixelFormat::RGB,
+    };
+    tj.decompress(jpeg, image)?;
+    Ok(RgbImage::from_raw(width as u32, height as u32, pixels).expect("buffer size"))
 }
 
 #[cfg(test)]
@@ -57,13 +71,14 @@ mod tests {
         let frame = RawFrame { no: 0, ts: Duration::ZERO, data: FrameData::Jpeg(jpeg.into()) };
         let geo = Geometry::MS2109_720P;
 
-        let full = NesCanvas::sample(&frame.decode().unwrap(), &geo, None);
+        let full = NesCanvas::sample(&frame.decode().unwrap(), &geo);
         let mut decoder = Decoder::new().unwrap();
         let started = Instant::now();
         let (img, factor) = decoder.decode(&frame).unwrap();
         eprintln!("½-scale decode: {:?}", started.elapsed());
         assert_eq!((img.width(), img.height(), factor), (640, 360, 2));
-        let half = NesCanvas::sample(&img, &geo.scaled_down(factor), None);
+        assert_eq!(decoder.decode_full(&frame).unwrap().dimensions(), (1280, 720));
+        let half = NesCanvas::sample(&img, &geo.scaled_down(factor));
 
         assert!(hamming(full.dhash(), half.dhash()) <= 2);
         let close = full

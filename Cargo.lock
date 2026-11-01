@@ -143,9 +143,13 @@ dependencies = [
 name = "bro-games"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "bro-capture",
  "bro-heart",
  "bro-vision",
  "image",
+ "serde",
+ "toml",
 ]
 
 [[package]]

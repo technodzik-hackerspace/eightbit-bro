@@ -141,9 +141,9 @@ is the menu, a game, or no signal.
 
   | Frame | Previous state | Result |
   |---|---|---|
-  | Black | `InGame{g,…}` | stays `InGame{g,…}` (level transitions, etc.) |
+  | Black (or blanked: a long run of black lines, see tech design §3.4) | `InGame{g,…}` | stays `InGame{g,…}` (level transitions, etc.) |
   | Black | none / `NoSignal` | `NoSignal` |
-  | Black | `Menu` | stays `Menu` (TBD after the menu capture session) |
+  | Black | `Menu` | stays `Menu` |
   | Non-black, unrecognized | `InGame{g,…}` | stays `InGame{g,…}` + frame goes to the review queue (§7) |
   | Non-black, unrecognized | none / `NoSignal` / `Menu` | `InGame{Other}` + frame goes to the review queue |
 
@@ -156,11 +156,13 @@ is the menu, a game, or no signal.
 
 ### 5.3 Menu
 
-- The menu is a blue screen titled **"300 IN 1 VER2.0"** with a numbered, alphabetical list of
-  **20 games per page** and a red arrow cursor (seen in the first capture: page 1 =
-  1. Adventure Island … 20. Babel no Tou). The full catalog comes from the labeling session (§11).
-- The menu recognizer reports `page`, `cursor_index` and `highlighted_game` (the title under
-  the cursor, from a catalog of all ~300 titles built during the labeling session).
+- The menu is a blue screen titled **"300 IN 1 VER2.0"** with a numbered, mostly alphabetical
+  list of **20 games per page** (15 pages, 300 games) and a red arrow cursor. The cart has its
+  own spellings and order (173 is "LITTLE NEMO", BADMINTON appears twice).
+- The menu recognizer reports `page`, `cursor` and `highlighted` (the title under the cursor)
+  from a **static catalog** of the menu's games (`Title` enum), read off the console. The
+  service logs every complete menu page it reads, so scrolling through the menu once fills
+  the catalog.
 - When the console goes from `Menu` to `InGame`, the last `highlighted_game` is recorded as
   **menu selection** metadata on the session. If the in-game recognizer disagrees with it
   (e.g. menu said Tetris, screen says Battle City), log a warning; in-game recognition wins.

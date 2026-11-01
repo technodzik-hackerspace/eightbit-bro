@@ -3,13 +3,11 @@
 
 mod canvas;
 mod geometry;
-mod palette;
 mod poi;
 mod probe;
 
-pub use canvas::{H, NesCanvas, UNSURE, W, hamming};
+pub use canvas::{H, NesCanvas, W, hamming, luma};
 pub use geometry::{Geometry, Rect};
-pub use palette::Palette;
 pub use poi::optimize_poi;
 pub use probe::Probe;
 
@@ -17,17 +15,17 @@ pub use probe::Probe;
 pub(crate) mod fixtures {
     use image::RgbImage;
 
-    use crate::{Geometry, NesCanvas, Rect};
+    use crate::{Geometry, NesCanvas};
 
-    /// Tetris 1P demo from the MS2109 at 720p, already cropped to the console picture.
-    pub fn tetris_1p() -> (RgbImage, Geometry, NesCanvas) {
+    /// Tetris 1P demo, as the MS2109 captures it at 720p.
+    pub fn tetris() -> (RgbImage, Geometry, NesCanvas) {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../fixtures/frames/tetris_1p_demo_crop_896x720.png"
+            "/../../fixtures/frames/ms2109_720p_tetris_demo.jpg"
         );
         let img = image::open(path).unwrap().to_rgb8();
-        let geo = Geometry { picture: Rect::new(0, 0, 896, 720) };
-        let canvas = NesCanvas::sample(&img, &geo, None);
+        let geo = Geometry::MS2109_720P;
+        let canvas = NesCanvas::sample(&img, &geo);
         (img, geo, canvas)
     }
 }

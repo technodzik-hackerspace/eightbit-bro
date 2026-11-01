@@ -1,0 +1,475 @@
+# What perception must see on each frame the Pi queued on 2026-11-01 (review items 1-32).
+# Menu rows are "<number>.<name>" as on screen, '?' where a cell isn't a known glyph.
+
+[[frame]]
+file = "1.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "2.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "3.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "4.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "5.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "6.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "7.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "8.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "9.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "10.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "11.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "12.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "13.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "14.jpg"
+seen = "black"
+
+[[frame]]
+file = "15.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "1.ADVENTURE ISLAND",
+  "2.ADVENTURE ISLAND 2",
+  "3.ADVENTURE ISLAND 3",
+  "4.ADVENTURE ISLAND 4",
+  "5.ADVENTURES OF DINO RIKI",
+  "6.ADVENTURES OF LOLO",
+  "7.ADVENTURES OF LOLO 2",
+  "8.AETHER CRUISER",
+  "9.AIMLESS",
+  "10.AIR ALERT",
+  "11.ALPHA MISSION",
+  "12.ANTARCTIC ADVENTURE",
+  "13.ARGUS",
+  "14.ARKANOID",
+  "15.ASTRO ROBO SASA",
+  "16.ASTYANAX",
+  "17.ATLANTIS NO NAZO",
+  "18.AWFUL RUSHING",
+  "19.B-WINGS",
+  "20.BABEL NO TOU",
+]
+
+[[frame]]
+file = "16.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "21.BACK TO THE FUTURE",
+  "22.BADMINTON",
+  "23.BALLOON FIGHT",
+  "24.BALTRON",
+  "25.BANANAN PRINCE",
+  "26.BANDAI GOLF",
+  "27.BASEBALL",
+  "28.BATMAN",
+  "29.BATTLE CITY",
+  "30.BATTLE TANK",
+  "31.BATTLESHIP",
+  "32.BINARY LAND",
+  "33.BINGO",
+  "34.BIRD WEEK",
+  "35.BLOCKS WORLD",
+  "36.BOKOSUKA WARS",
+  "17.ATLANTIS NO NAZO",
+  "18.AWFUL RUSHING",
+  "19.B-WINGS",
+  "20.BABEL NO TOU",
+]
+
+[[frame]]
+file = "17.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "101.EXCITEBIKE",
+  "102.EXED EXES",
+  "83.DEVIL WORLD",
+  "84.DIG DUG",
+  "85.DIG DUG II",
+  "86.DONKEY KONG",
+  "87.DONKEY KONG JR",
+  "88.DONKEY KONG 3",
+  "89.DOOR DOOR",
+  "90.DOUBLE DRAGON 2",
+  "91.DOUBLE DRAGON 3",
+  "92.DOUGH BOY",
+  "93.DR.MARIO",
+  "94.DRAGON",
+  "95.DRUAGA",
+  "96.DUCK",
+  "97.EGG CONTEST",
+  "98.EGYPT",
+  "99.EIGO ASOBI",
+  "100.ELEVATOR ACTION",
+]
+
+[[frame]]
+file = "18.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "121.GAUNTLET",
+  "122.GEIMOS",
+  "123.GHOSTBUSTERS",
+  "124.GIABBIT",
+  "125.GLOMMY CHESS",
+  "126.GOLDEN BIRD",
+  "127.GOLF",
+  "128.GOONIES",
+  "129.GRADIUS",
+  "130.GREEDS",
+  "111.FIREHOUSE RESCUE",
+  "112.FIVE CHESS",
+  "113.FLAPPY",
+  "114.FLIPULL",
+  "115.FOREST ADVENTURE",
+  "116.FORMATION Z",
+  "117.FRIDAY THE 13",
+  "118.FRONT LINE",
+  "119.GALAGA",
+  "120.GALAXIAN",
+]
+
+[[frame]]
+file = "19.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "141.ICE HOCKEY",
+  "142.IGO MEIKAN",
+  "143.IKKI",
+  "144.IKARI 3",
+  "145.ISOLATED WARRIOR",
+  "146.WEREWOLF",
+  "127.GOLF",
+  "128.GOONIES",
+  "129.GRADIUS",
+  "130.GREEDS",
+  "131.GUERRILLA WAR",
+  "132.GUNNAC",
+  "133.GYRODINE",
+  "134.GAUNTLET II",
+  "135.GYRUSS",
+  "136.HAMMERIN HARRY",
+  "137.HOKUTO NO KEN",
+  "138.HYDLIDE",
+  "139.I CAN REMEMBER",
+  "140.ICE CLIMBER",
+]
+
+[[frame]]
+file = "20.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "181.MIGHTY FINAL FIGHT",
+  "182.MILLIPEDE",
+  "183.MILON'S SECRET CASTLE",
+  "184.MISSION - IMPOSSIBLE",
+  "185.MITSUME GA TOORU",
+  "186.MOAI KUN",
+  "187.MONSTER IN MY POCKET",
+  "188.MONSTER TRUCK RALLY",
+  "169.LUNAR BALL",
+  "170.MAAJAN_JP",
+  "171.MACH RIDER",
+  "172.MACROSS",
+  "173.LITTLE NEMO",
+  "174.MAGMAX",
+  "175.MAPPY-LAND",
+  "176.MAPPY",
+  "177.MARIO BROS",
+  "178.METRO-CROSS",
+  "179.MICKEY MOUSE",
+  "180.MIGHTY BOMB JACK",
+]
+
+[[frame]]
+file = "21.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "201.NINJA TURTLES 2",
+  "202.NINJA TURTLES 3",
+  "183.MILON'S SECRET CASTLE",
+  "184.MISSION - IMPOSSIBLE",
+  "185.MITSUME GA TOORU",
+  "186.MOAI KUN",
+  "187.MONSTER IN MY POCKET",
+  "188.MONSTER TRUCK RALLY",
+  "189.MS. PAC-MAN",
+  "190.MYSTERY QUEST",
+  "191.NAITOU 9 DAN",
+  "192.HOCKEY",
+  "193.KOUSHIN KYOKU",
+  "194.MONOGATARI",
+  "195.SOCCER LEAGUE",
+  "196.NIGHT ARROW",
+  "197.NINJA GAIDEN II",
+  "198.NINJA GAIDEN III",
+  "199.NINJA HATTORI-KUN",
+  "200.NINJA KUN",
+]
+
+[[frame]]
+file = "22.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "221.RAID ON BUNGELING BAY",
+  "222.RAMPAGE",
+  "223.RIVER CITY RANSOM",
+  "224.ROAD FIGHTER",
+  "205.ONYANKO TOWN",
+  "206.OTHELLO",
+  "207.PAC-MAN",
+  "208.PAC-MANIA",
+  "209.PAPERBOY",
+  "210.PENGUIN WARS",
+  "211.PINBALL",
+  "212.PIPE DREAM",
+  "213.POOYAN",
+  "214.POPEYE",
+  "215.POW",
+  "216.POWER BLADE",
+  "217.POWER BLADE 2",
+  "218.PRO-WRESTLING",
+  "219.Q-BERT",
+  "220.QUARTH",
+]
+
+[[frame]]
+file = "23.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "221.RAID ON BUNGELING BAY",
+  "222.RAMPAGE",
+  "223.RIVER CITY RANSOM",
+  "224.ROAD FIGHTER",
+  "225.ROBOCOP2",
+  "226.ROBOCOP 3",
+  "227.ROCKIN KATS",
+  "228.ROLLERGAMES",
+  "229.ROUTE-16 TURBO",
+  "230.SANRIO CARNIVAL",
+  "231.SANSUU ASOBI",
+  "232.SEICROSS",
+  "233.SHADOW WARRIORS",
+  "234.SHATTERHAND",
+  "235.SHOCKWAVE",
+  "236.SILKWORM",
+  "237.SKY DESTROYER",
+  "238.SKY KID",
+  "239.SLALOM",
+  "240.SMALL MARIO",
+]
+
+[[frame]]
+file = "24.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "241.SNOW BROS",
+  "242.SOCCER",
+  "243.SOLOMON KEY",
+  "244.SONSON",
+  "245.SPACE HUNTER",
+  "246.SPACE INVADERS",
+  "247.SPARTAN X",
+  "248.SPELUNKER",
+  "249.SPY HUNTER",
+  "250.SPY VS SPY",
+  "251.SQOON",
+  "252.STAR FORCE",
+  "233.SHADOW WARRIORS",
+  "234.SHATTERHAND",
+  "235.SHOCKWAVE",
+  "236.SILKWORM",
+  "237.SKY DESTROYER",
+  "238.SKY KID",
+  "239.SLALOM",
+  "240.SMALL MARIO",
+]
+
+[[frame]]
+file = "25.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "261.SUPER MARIO BROS 2",
+  "262.SUPER MARIO BROS 3",
+  "263.SUPER SPRINT",
+  "264.TANK A 1990",
+  "245.SPACE HUNTER",
+  "246.SPACE INVADERS",
+  "247.SPARTAN X",
+  "248.SPELUNKER",
+  "249.SPY HUNTER",
+  "250.SPY VS SPY",
+  "251.SQOON",
+  "252.STAR FORCE",
+  "253.STAR GATE",
+  "254.STAR LUSTER",
+  "255.STREET FIGHTER 2010",
+  "256.STREET FIGHTER",
+  "257.SUPER ARABIAN",
+  "258.SUPER CONTRA",
+  "259.BADMINTON",
+  "260.SUPER MARIO BROS",
+]
+
+[[frame]]
+file = "26.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "261.SUPER MARIO BROS 2",
+  "262.SUPER MARIO BROS 3",
+  "263.SUPER SPRINT",
+  "264.TANK A 1990",
+  "265.TENNIS",
+  "266.TERMINATOR 2",
+  "267.TETRIS II",
+  "268.THE GOONIES",
+  "269.THE JUNGLE BOOK",
+  "270.THE KRION CONQUEST",
+  "271.THE LEGEND OF KAGE",
+  "272.THE LITTLE RED HOOD",
+  "273.THE PENGUIN & SEAL",
+  "274.THE TOWER OF DRUAGA",
+  "275.THEXDER",
+  "276.TIGER-HELI",
+  "257.SUPER ARABIAN",
+  "258.SUPER CONTRA",
+  "259.BADMINTON",
+  "260.SUPER MARIO BROS",
+]
+
+[[frame]]
+file = "27.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "281.TWINBEE",
+  "282.U-FOUR-IA - THE SAGA",
+  "263.SUPER SPRINT",
+  "264.TANK A 1990",
+  "265.TENNIS",
+  "266.TERMINATOR 2",
+  "267.TETRIS II",
+  "268.THE GOONIES",
+  "269.THE JUNGLE BOOK",
+  "270.THE KRION CONQUEST",
+  "271.THE LEGEND OF KAGE",
+  "272.THE LITTLE RED HOOD",
+  "273.THE PENGUIN & SEAL",
+  "274.THE TOWER OF DRUAGA",
+  "275.THEXDER",
+  "276.TIGER-HELI",
+  "277.TINY TOON",
+  "278.TINY TOON 2",
+  "279.TOM & JERRY",
+  "280.TOURNAMENT FIGHTERS",
+]
+
+[[frame]]
+file = "28.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "261.SUPER MARIO BROS 2",
+  "262.SUPER MARIO BROS 3",
+  "263.SUPER SPRINT",
+  "264.TANK A 1990",
+  "265.TENNIS",
+  "266.TERMINATOR 2",
+  "267.TETRIS II",
+  "268.THE GOONIES",
+  "269.THE JUNGLE BOOK",
+  "270.THE KRION CONQUEST",
+  "291.WEREWOLF",
+  "292.WHOMP'EM",
+  "293.WORLD OF CARD GAMES",
+  "294.WRECHKING CREW",
+  "295.XEVIOUS",
+  "296.YIE AR KUNG-FU",
+  "297.ZEN",
+  "298.ZIPPY RACE",
+  "299.10-YARD FIGHT",
+  "300.1942",
+]
+
+[[frame]]
+file = "29.jpg"
+seen = "menu"
+cursor = 0
+rows = [
+  "241.SNOW BROS",
+  "242.SOCCER",
+  "243.SOLOMON KEY",
+  "244.SONSON",
+  "245.SPACE HUNTER",
+  "246.SPACE INVADERS",
+  "247.SPARTAN X",
+  "248.SPELUNKER",
+  "249.SPY HUNTER",
+  "250.SPY VS SPY",
+  "251.SQOON",
+  "252.STAR FORCE",
+  "253.STAR GATE",
+  "254.STAR LUSTER",
+  "275.THEXDER",
+  "276.TIGER-HELI",
+  "277.TINY TOON",
+  "278.TINY TOON 2",
+  "279.TOM & JERRY",
+  "280.TOURNAMENT FIGHTERS",
+]
+
+[[frame]]
+file = "30.jpg"
+seen = "black"
+
+[[frame]]
+file = "31.jpg"
+seen = "tetris"
+
+[[frame]]
+file = "32.jpg"
+seen = "black"

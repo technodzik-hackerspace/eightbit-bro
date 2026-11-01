@@ -43,8 +43,8 @@ pub fn reduce(prev: &ConsoleState, obs: &Observation) -> (ConsoleState, Vec<Even
 fn enter_game(prev: &ConsoleState, game: GameId) -> ConsoleState {
     let menu_selection = match prev {
         ConsoleState::InGame { game: g, .. } if *g == game => return prev.clone(),
-        ConsoleState::InGame { menu_selection, .. } => menu_selection.clone(),
-        ConsoleState::Menu(m) => m.highlighted.clone(),
+        ConsoleState::InGame { menu_selection, .. } => *menu_selection,
+        ConsoleState::Menu(m) => m.highlighted,
         ConsoleState::NoSignal => None,
     };
     ConsoleState::InGame { game, detail: GameDetail::None, menu_selection }
@@ -54,9 +54,10 @@ fn enter_game(prev: &ConsoleState, game: GameId) -> ConsoleState {
 mod tests {
     use super::*;
     use crate::state::MenuState;
+    use crate::title::Title;
 
-    fn menu(cursor: u8, title: &str) -> ConsoleState {
-        ConsoleState::Menu(MenuState { page: 1, cursor, highlighted: Some(title.into()) })
+    fn menu(cursor: u8, title: Title) -> ConsoleState {
+        ConsoleState::Menu(MenuState { page: 1, cursor, highlighted: Some(title) })
     }
 
     fn in_game(game: GameId) -> ConsoleState {
@@ -83,7 +84,7 @@ mod tests {
 
     #[test]
     fn r4_black_in_menu_keeps_menu() {
-        let prev = menu(3, "Contra");
+        let prev = menu(3, Title::Argus);
         assert_eq!(step(&prev, Seen::Black), (prev, vec![]));
     }
 
@@ -103,18 +104,18 @@ mod tests {
 
     #[test]
     fn r4_unrecognized_from_menu_is_other_with_menu_selection() {
-        let (next, events) = step(&menu(3, "Contra"), Seen::Unrecognized);
+        let (next, events) = step(&menu(3, Title::Argus), Seen::Unrecognized);
         assert_eq!(
             next,
             ConsoleState::InGame {
                 game: GameId::Other,
                 detail: GameDetail::None,
-                menu_selection: Some("Contra".into()),
+                menu_selection: Some(Title::Argus),
             }
         );
         assert_eq!(
             events,
-            vec![EventKind::Changed { from: "Menu/p1/c3".into(), to: "InGame/Other".into() }]
+            vec![EventKind::Changed { from: "Menu/p1/c3/ARGUS".into(), to: "InGame/Other".into() }]
         );
     }
 
@@ -129,14 +130,14 @@ mod tests {
 
     #[test]
     fn r5_recognized_game_replaces_other_and_keeps_menu_selection() {
-        let (other, _) = step(&menu(5, "Tetris"), Seen::Unrecognized);
+        let (other, _) = step(&menu(5, Title::TetrisIi), Seen::Unrecognized);
         let (next, _) = step(&other, Seen::Game(GameId::Tetris));
         assert_eq!(
             next,
             ConsoleState::InGame {
                 game: GameId::Tetris,
                 detail: GameDetail::None,
-                menu_selection: Some("Tetris".into()),
+                menu_selection: Some(Title::TetrisIi),
             }
         );
     }

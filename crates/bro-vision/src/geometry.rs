@@ -54,8 +54,9 @@ impl Rect {
     }
 }
 
-/// Where the console picture is in the captured frame (tech design §2: at 720p it is
-/// pillarboxed at x = 192..1088).
+/// Where the console picture is in the captured frame. At 720p the console's 256 pixels
+/// span x = 188..1098 (3.555 capture px each, nearest-neighbour scaled), measured from the
+/// pixel edges of menu text (tech design §2, D7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Geometry {
     pub picture: Rect,
@@ -63,7 +64,7 @@ pub struct Geometry {
 
 impl Geometry {
     pub const MS2109_720P: Geometry =
-        Geometry { picture: Rect { x1: 192, y1: 0, x2: 1088, y2: 720 } };
+        Geometry { picture: Rect { x1: 188, y1: 0, x2: 1098, y2: 720 } };
 
     /// The same picture in a frame decoded at `1/factor` scale.
     pub fn scaled_down(&self, factor: u32) -> Geometry {
@@ -99,16 +100,17 @@ impl Geometry {
         }
     }
 
-    /// Canvas rectangle → capture rectangle covering it, for drawing over the frame.
+    /// Canvas rectangle → capture rectangle, for drawing over the frame.
     pub fn to_capture(&self, r: Rect) -> Rect {
         let p = &self.picture;
         let (w, h) = (p.width(), p.height());
         let (cw, ch) = (W as u32, H as u32);
+        // Rounded inwards, so `to_canvas` maps it back to `r`.
         Rect {
-            x1: p.x1 + r.x1 * w / cw,
-            y1: p.y1 + r.y1 * h / ch,
-            x2: p.x1 + (r.x2 * w).div_ceil(cw),
-            y2: p.y1 + (r.y2 * h).div_ceil(ch),
+            x1: p.x1 + (r.x1 * w).div_ceil(cw),
+            y1: p.y1 + (r.y1 * h).div_ceil(ch),
+            x2: p.x1 + r.x2 * w / cw,
+            y2: p.y1 + r.y2 * h / ch,
         }
     }
 }
@@ -131,11 +133,11 @@ mod tests {
     #[test]
     fn ms2109_720p_maps_three_lines_per_nes_line() {
         let g = Geometry::MS2109_720P;
-        assert_eq!(g.sample_point(0, 0), (193, 1));
-        assert_eq!(g.sample_point(255, 239), (1086, 718));
-        assert_eq!(g.to_canvas(Rect::new(192, 0, 1088, 720)), Rect::new(0, 0, 256, 240));
+        assert_eq!(g.sample_point(0, 0), (189, 1));
+        assert_eq!(g.sample_point(255, 239), (1096, 718));
+        assert_eq!(g.to_canvas(Rect::new(188, 0, 1098, 720)), Rect::new(0, 0, 256, 240));
         // Outside the picture (pillarbox) is clipped away.
-        assert_eq!(g.to_canvas(Rect::new(0, 0, 199, 6)), Rect::new(0, 0, 2, 2));
+        assert_eq!(g.to_canvas(Rect::new(0, 0, 199, 6)), Rect::new(0, 0, 4, 2));
     }
 
     #[test]
@@ -143,7 +145,7 @@ mod tests {
         let g = Geometry::MS2109_720P;
         let c = Rect::new(8, 16, 24, 32);
         let cap = g.to_capture(c);
-        assert_eq!(cap, Rect::new(220, 48, 276, 96));
+        assert_eq!(cap, Rect::new(217, 48, 273, 96));
         assert_eq!(g.to_canvas(cap), c);
     }
 }

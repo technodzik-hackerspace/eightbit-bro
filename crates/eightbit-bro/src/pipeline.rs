@@ -7,8 +7,8 @@ use std::time::Instant;
 
 use anyhow::Result;
 use bro_capture::{Decoder, FrameData, RawFrame};
-use bro_games::Perception;
-use bro_heart::{ConsoleState, EventKind, Observation, Seen, reduce};
+use bro_games::{MenuRead, MenuRow, Perception};
+use bro_heart::{ConsoleState, EventKind, Observation, Seen, Title, reduce};
 use bro_store::{Offer, Store};
 use bro_vision::{Geometry, NesCanvas};
 use bro_web::{Live, Push};
@@ -18,10 +18,11 @@ use tracing::{debug, info, warn};
 pub struct Pipeline {
     decoder: Decoder,
     perception: Perception,
-    geometry: Geometry,
     state: ConsoleState,
     store: Arc<Store>,
     live: Arc<Live>,
+    /// The last complete menu page logged, so each page is logged once per visit.
+    logged_page: Option<u8>,
 }
 
 impl Pipeline {
@@ -29,11 +30,11 @@ impl Pipeline {
         live.set_state(&ConsoleState::NoSignal);
         Ok(Pipeline {
             decoder: Decoder::new()?,
-            perception: Perception::standard(),
-            geometry,
+            perception: Perception::new(geometry)?,
             state: ConsoleState::NoSignal,
             store,
             live,
+            logged_page: None,
         })
     }
 
@@ -41,39 +42,46 @@ impl Pipeline {
         let started = Instant::now();
         let live = self.live.clone();
         let stats = &live.stats;
+        let hint = match &self.state {
+            ConsoleState::InGame { game, .. } => Some(*game),
+            _ => None,
+        };
         // Corrupt frames are counted and skipped; they never change the state (PRD Q9).
-        let (img, factor) = match self.decoder.decode(frame) {
-            Ok(decoded) => decoded,
+        let sight = match self.perception.see(&mut self.decoder, frame, hint) {
+            Ok(sight) => sight,
             Err(err) => {
                 stats.corrupt.fetch_add(1, Ordering::Relaxed);
                 debug!(frame = frame.no, %err, "corrupt frame");
                 return;
             }
         };
-        let geometry = self.geometry.scaled_down(factor);
-        if !geometry.fits(img.width(), img.height()) {
-            stats.corrupt.fetch_add(1, Ordering::Relaxed);
-            debug!(
-                frame = frame.no,
-                w = img.width(),
-                h = img.height(),
-                "frame smaller than the picture"
-            );
-            return;
+        if let Some(read) = &sight.menu {
+            self.log_menu_page(read);
         }
-        let canvas = NesCanvas::sample(&img, &geometry, None);
-        let hint = match &self.state {
-            ConsoleState::InGame { game, .. } => Some(*game),
-            _ => None,
-        };
-        let seen = self.perception.perceive(&canvas, hint);
-        let unrecognized = seen == Seen::Unrecognized;
-        self.observe(Observation { frame_no: frame.no, seen });
-        if unrecognized && let Err(err) = self.review(frame, &canvas) {
+        let unrecognized = sight.seen == Seen::Unrecognized;
+        self.observe(Observation { frame_no: frame.no, seen: sight.seen });
+        if unrecognized && let Err(err) = self.review(frame, &sight.canvas) {
             warn!(frame = frame.no, %err, "review queue");
         }
         stats.processed.fetch_add(1, Ordering::Relaxed);
         stats.perceive_us.fetch_add(started.elapsed().as_micros() as u64, Ordering::Relaxed);
+    }
+
+    /// Logs each complete menu page once, with the games the catalog doesn't know yet, so
+    /// scrolling through the menu completes `bro_heart::TITLES`.
+    fn log_menu_page(&mut self, read: &MenuRead) {
+        let Some(page) = read.complete_page() else { return };
+        if self.logged_page == Some(page) {
+            return;
+        }
+        self.logged_page = Some(page);
+        let rows: Vec<MenuRow> = (0..read.text.len()).filter_map(|i| read.row(i)).collect();
+        let unknown: Vec<String> = rows
+            .iter()
+            .filter(|r| Title::from_number(r.number).is_none_or(|t| t.name() != r.name))
+            .map(|r| format!("{}.{}", r.number, r.name))
+            .collect();
+        info!(page, unknown = unknown.join(" | "), "menu page");
     }
 
     pub fn observe(&mut self, obs: Observation) {

@@ -2,6 +2,8 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
+use crate::Title;
+
 /// Games with a recognizer. Everything else the console runs is `Other`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum GameId {
@@ -22,10 +24,12 @@ impl fmt::Display for GameId {
 /// The "300 IN 1" menu: 20 games per page and a cursor (PRD §5.3).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MenuState {
+    /// 1-based: page 1 is games 1–20.
     pub page: u8,
+    /// Row of the arrow, 0..20.
     pub cursor: u8,
-    /// Catalog title under the cursor, when the catalog knows it.
-    pub highlighted: Option<String>,
+    /// The game under the cursor, when its number and name were read and match the catalog.
+    pub highlighted: Option<Title>,
 }
 
 /// Game-specific subtree. Games without deep recognition have none; Tetris gets its
@@ -43,17 +47,20 @@ pub enum ConsoleState {
         game: GameId,
         detail: GameDetail,
         /// The title highlighted in the menu when the game was launched (PRD §5.3).
-        menu_selection: Option<String>,
+        menu_selection: Option<Title>,
     },
 }
 
 impl ConsoleState {
-    /// The path through the tree, e.g. `InGame/Tetris` or `Menu/p1/c3`. Used in logs and
-    /// events, and to decide whether anything changed.
+    /// The path through the tree, e.g. `InGame/Tetris` or `Menu/p14/c6/TETRIS II`. Used in
+    /// logs and events, and to decide whether anything changed.
     pub fn path(&self) -> String {
         match self {
             ConsoleState::NoSignal => "NoSignal".into(),
-            ConsoleState::Menu(m) => format!("Menu/p{}/c{}", m.page, m.cursor),
+            ConsoleState::Menu(m) => match m.highlighted {
+                Some(title) => format!("Menu/p{}/c{}/{}", m.page, m.cursor, title.name()),
+                None => format!("Menu/p{}/c{}", m.page, m.cursor),
+            },
             ConsoleState::InGame { game, .. } => format!("InGame/{game}"),
         }
     }

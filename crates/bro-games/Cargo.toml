@@ -6,8 +6,12 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+anyhow.workspace = true
+bro-capture.workspace = true
 bro-heart.workspace = true
 bro-vision.workspace = true
 
 [dev-dependencies]
 image.workspace = true
+serde.workspace = true
+toml.workspace = true

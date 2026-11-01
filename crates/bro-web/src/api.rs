@@ -206,7 +206,7 @@ async fn poi_add(State(ctx): Ctx, Path(id): Path<i64>, Json(p): Json<NewPoi>) ->
         if !geometry.fits(img.width(), img.height()) {
             return Ok(None);
         }
-        Ok(optimize_poi(&NesCanvas::sample(&img, &geometry, None), &geometry, drawn))
+        Ok(optimize_poi(&NesCanvas::sample(&img, &geometry), &geometry, drawn))
     })
     .await??;
     let poi = ctx.store.poi_add(id, drawn, optimized, p.comment.trim())?;
