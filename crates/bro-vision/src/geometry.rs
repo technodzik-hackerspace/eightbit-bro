@@ -65,6 +65,12 @@ impl Geometry {
     pub const MS2109_720P: Geometry =
         Geometry { picture: Rect { x1: 192, y1: 0, x2: 1088, y2: 720 } };
 
+    /// The same picture in a frame decoded at `1/factor` scale.
+    pub fn scaled_down(&self, factor: u32) -> Geometry {
+        let p = &self.picture;
+        Geometry { picture: Rect::new(p.x1 / factor, p.y1 / factor, p.x2 / factor, p.y2 / factor) }
+    }
+
     /// Whether a frame of this size contains the whole picture.
     pub fn fits(&self, width: u32, height: u32) -> bool {
         self.picture.x2 <= width && self.picture.y2 <= height && !self.picture.is_empty()

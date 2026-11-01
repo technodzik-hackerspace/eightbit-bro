@@ -1,4 +1,4 @@
-{ lib, rustPlatform }:
+{ lib, rustPlatform, pkg-config, libjpeg_turbo }:
 
 rustPlatform.buildRustPackage {
   pname = "eightbit-bro";
@@ -15,6 +15,9 @@ rustPlatform.buildRustPackage {
   };
 
   cargoLock.lockFile = ../Cargo.lock;
+
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ libjpeg_turbo ];
 
   meta = {
     description = "He watches and knows all your 8-bit games";

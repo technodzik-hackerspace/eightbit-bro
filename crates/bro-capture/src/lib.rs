@@ -1,6 +1,7 @@
 //! Where frames come from, and the ring buffer that shares them (tech design §3.1, §3.2).
 //! The capture card is read through an `ffmpeg` child copying its MJPEG stream.
 
+mod decode;
 mod dir;
 mod ffmpeg;
 mod ring;
@@ -11,6 +12,7 @@ use std::time::Duration;
 use anyhow::Result;
 use image::{ImageFormat, RgbImage};
 
+pub use decode::Decoder;
 pub use dir::DirSource;
 pub use ffmpeg::{FfmpegSource, JpegSplitter};
 pub use ring::Ring;

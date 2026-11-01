@@ -6,7 +6,7 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use anyhow::Result;
-use bro_capture::{FrameData, RawFrame};
+use bro_capture::{Decoder, FrameData, RawFrame};
 use bro_games::Perception;
 use bro_heart::{ConsoleState, EventKind, Observation, Seen, reduce};
 use bro_store::{Offer, Store};
@@ -16,6 +16,7 @@ use image::ImageFormat;
 use tracing::{debug, info, warn};
 
 pub struct Pipeline {
+    decoder: Decoder,
     perception: Perception,
     geometry: Geometry,
     state: ConsoleState,
@@ -24,10 +25,16 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(geometry: Geometry, store: Arc<Store>, live: Arc<Live>) -> Pipeline {
+    pub fn new(geometry: Geometry, store: Arc<Store>, live: Arc<Live>) -> Result<Pipeline> {
         live.set_state(&ConsoleState::NoSignal);
-        let perception = Perception::standard();
-        Pipeline { perception, geometry, state: ConsoleState::NoSignal, store, live }
+        Ok(Pipeline {
+            decoder: Decoder::new()?,
+            perception: Perception::standard(),
+            geometry,
+            state: ConsoleState::NoSignal,
+            store,
+            live,
+        })
     }
 
     pub fn process(&mut self, frame: &RawFrame) {
@@ -35,15 +42,16 @@ impl Pipeline {
         let live = self.live.clone();
         let stats = &live.stats;
         // Corrupt frames are counted and skipped; they never change the state (PRD Q9).
-        let img = match frame.decode() {
-            Ok(img) => img,
+        let (img, factor) = match self.decoder.decode(frame) {
+            Ok(decoded) => decoded,
             Err(err) => {
                 stats.corrupt.fetch_add(1, Ordering::Relaxed);
                 debug!(frame = frame.no, %err, "corrupt frame");
                 return;
             }
         };
-        if !self.geometry.fits(img.width(), img.height()) {
+        let geometry = self.geometry.scaled_down(factor);
+        if !geometry.fits(img.width(), img.height()) {
             stats.corrupt.fetch_add(1, Ordering::Relaxed);
             debug!(
                 frame = frame.no,
@@ -53,7 +61,7 @@ impl Pipeline {
             );
             return;
         }
-        let canvas = NesCanvas::sample(&img, &self.geometry, None);
+        let canvas = NesCanvas::sample(&img, &geometry, None);
         let hint = match &self.state {
             ConsoleState::InGame { game, .. } => Some(*game),
             _ => None,

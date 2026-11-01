@@ -91,7 +91,7 @@ pub fn spawn_rates(live: Arc<Live>) {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(1));
         let mut prev = (0, 0, 0);
-        loop {
+        for n in 0u64.. {
             tick.tick().await;
             let s = &live.stats;
             let now = (
@@ -117,6 +117,19 @@ pub fn spawn_rates(live: Arc<Live>) {
                     Some(line.split_whitespace().nth(1)?.parse::<f64>().ok()? / 1024.0)
                 }),
             };
+            // Periodic stats in the journal (PRD O5).
+            if n % 60 == 59 {
+                tracing::info!(
+                    capture_fps = rates.capture_fps,
+                    perceive_fps = rates.perceive_fps,
+                    perceive_ms = format!("{:.1}", rates.perceive_ms),
+                    skipped = s.skipped.load(Ordering::Relaxed),
+                    corrupt = s.corrupt.load(Ordering::Relaxed),
+                    temp_c = rates.temp_c,
+                    rss_mb = rates.rss_mb.map(|m| m.round()),
+                    "stats"
+                );
+            }
             *live.rates.lock().unwrap() = rates;
             prev = now;
         }

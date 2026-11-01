@@ -8,3 +8,7 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 image.workspace = true
+turbojpeg.workspace = true
+
+[dev-dependencies]
+bro-vision.workspace = true

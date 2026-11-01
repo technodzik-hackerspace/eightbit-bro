@@ -25,6 +25,7 @@ const RING_FRAMES: usize = 240;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
+        .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stdout()))
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
@@ -42,19 +43,19 @@ fn main() -> Result<()> {
     let (live, worker) = match config.input.kind()? {
         InputKind::Device(device) => {
             let live = Arc::new(Live::new(Some(ring.clone()), device.display().to_string()));
-            let pipeline = Pipeline::new(config.geometry, store.clone(), live.clone());
+            let pipeline = Pipeline::new(config.geometry, store.clone(), live.clone())?;
             (live.clone(), spawn_live(device.to_owned(), ring, pipeline, live))
         }
         InputKind::Dir(dir) => {
             let source = DirSource::open(dir, config.input.fps)?;
             let live = Arc::new(Live::new(Some(ring.clone()), dir.display().to_string()));
-            let pipeline = Pipeline::new(config.geometry, store.clone(), live.clone());
+            let pipeline = Pipeline::new(config.geometry, store.clone(), live.clone())?;
             (live.clone(), spawn_replay(Box::new(source), ring, pipeline, live))
         }
         InputKind::Video(video) => {
             let source = FfmpegSource::video(video, config.input.fps)?;
             let live = Arc::new(Live::new(Some(ring.clone()), video.display().to_string()));
-            let pipeline = Pipeline::new(config.geometry, store.clone(), live.clone());
+            let pipeline = Pipeline::new(config.geometry, store.clone(), live.clone())?;
             (live.clone(), spawn_replay(Box::new(source), ring, pipeline, live))
         }
     };
