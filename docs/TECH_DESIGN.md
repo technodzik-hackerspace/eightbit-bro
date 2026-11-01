@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| Status | Draft v0.2 (2026-11-02) |
-| Implements | `docs/PRD.md` v0.2 |
+| Status | Draft v0.3 (2026-11-01) |
+| Implements | `docs/PRD.md` v0.4 |
 
 ## 1. Overview
 
@@ -101,9 +101,9 @@ Temperature after the run: 62.8 °C.
 | Web, SQLite, Telegram | ~0.1 | ~0.1 |
 | **Total (of 4 cores)** | **~1.8** | **~1.2** |
 
-**Conclusion: everything fits on the Pi.** 30 fps has a lot of headroom; 60 fps looks feasible
-with about half the CPU free. The fenek split (PRD §8.4) stays a fallback; the design keeps it
-possible (§10) but we don't build it in v2.0.
+**Conclusion: everything fits on the Pi.** The chosen 30 fps output (D1) has a lot of headroom;
+60 fps would also fit with about half the CPU free. The fenek split (PRD §8.4) stays a
+fallback; the design keeps it possible (§10) but we don't build it in v2.0.
 
 ## 3. Frame pipeline
 
@@ -136,8 +136,8 @@ for 1 s. What the MS2109 outputs with the console off (black, blue, frozen) is s
 
 ### 3.2 Ring buffer
 
-A lock-free ring of the last **~4 s of JPEG frames** (240 × ~140 KB ≈ 34 MB) with `Arc<Bytes>`,
-so the recorder, perception and the dashboard preview share frames without copying. When the
+A ring of the last **~4 s of JPEG frames** (240 × ~140 KB ≈ 34 MB) of `Arc` frames behind a
+mutex held only for a push or a lookup (no copying, no IO under the lock), so the recorder, perception and the dashboard preview share frames without copying. When the
 reducer says "a session started at frame N" a few frames late, the recorder starts from
 frame N out of the ring. This is how the PRD requirement "the video starts at the first
 gameplay frame" is met.
@@ -146,8 +146,8 @@ gameplay frame" is met.
 
 ```rust
 pub struct NesCanvas {           // 256 × 240
-    pub px: [u8; 256 * 240],     // NES palette index per pixel (0..64), or 0xFF = "unsure"
-    pub rgb: Option<RgbImage>,   // kept only for debugging / the review queue
+    pub px: Box<[u8]>,           // palette index per pixel, or 0xFF = "unsure"
+    pub rgb: Box<[[u8; 3]]>,     // the sampled colours (POI optimization, review queue PNG)
 }
 ```
 
@@ -220,7 +220,27 @@ pub fn reduce(prev: &ConsoleState, obs: &Observation, games: &Games)
 - `UnknownScreen` is emitted when a non-black unrecognized frame inherits `InGame` (R4),
   rate-limited and deduplicated with a perceptual hash of the canvas.
 
-### 3.6 Tetris module
+### 3.6 POI annotations (review queue → probes)
+
+The owner draws a **POI** on a review-queue frame in the dashboard: a rectangle `(x1, y1, x2,
+y2)` in the frame's capture pixels (half-open: `x1 ≤ x < x2`), the part of the screen that
+tells this frame apart, plus a free-text comment for the agent. A frame can have several POIs.
+
+On save the server **optimizes** the rectangle (`bro_vision::optimize_poi`):
+
+1. Map it to the NES canvas through the geometry calibration, rounding outwards.
+2. Trim it to the bounding box of the content inside it: pixels that differ from the region's
+   dominant (background) colour. A uniform region is kept as drawn: a plain area can be a
+   signature too.
+3. Snap it outwards to the **8×8 tile grid**. Backgrounds and text are drawn in tiles, so a
+   tile-aligned probe compares whole tiles and stays small.
+
+Both rectangles are stored and drawn over the frame, so the owner sees what will be checked.
+The agent reads the annotations through the API (`GET /api/review/{id}`: frame JPEG, canvas
+PNG, POIs, comments) and turns each optimized POI into a `Probe`: the canvas palette indices
+inside it, matched exactly on sure pixels, with a capped share of unsure ones (R1).
+
+### 3.7 Tetris module
 
 - **Layouts:** 1P, 2P versus, coop (shared well), versus/with computer, plus title,
   mode select, level select, pause, bonus, game over. Each layout has probes; `observe()`
@@ -247,18 +267,21 @@ whether frame N is in the video (a small lag, bounded by the ring size).
 
 ### 4.2 Constant frame rate
 
-The output has a fixed tick (1/60 or 1/30 s). For each tick the recorder takes the newest
+The output has a fixed tick of 1/30 s (D1). For each tick the recorder takes the newest
 included frame with `ts ≤ tick` (after subtracting cut-out pause time). No new frame →
 duplicate the previous one; several → drop the extras. Counts of captured, dropped and
 duplicated frames go into the session record (PRD F2/F3). At a 30 fps output this simply takes
-every other frame of the 60 fps capture.
+every other frame of the 60 fps capture; those unused frames are expected and counted
+separately. Frames lost before the recorder (V4L2 sequence gaps, corrupt JPEGs) are counted by
+capture. Paused time is cut out by shifting the timestamps after a pause back by its length, so
+a pause produces neither duplicates nor a jump.
 
 ### 4.3 Encoder
 
 v2.0 uses an **ffmpeg subprocess**, fed JPEG bytes on stdin:
 
 ```
-ffmpeg -f mjpeg -framerate 60 -i pipe:0 \
+ffmpeg -f mjpeg -framerate 30 -i pipe:0 \
        -vf crop=896:720:192:0 -c:v libx264 -preset ultrafast -crf 20 -g 120 \
        -pix_fmt yuv420p session.mkv
 ```
@@ -268,9 +291,8 @@ ffmpeg -f mjpeg -framerate 60 -i pipe:0 \
   Telegram (~1 s).
 - If the encoder can't keep up, the queue between recorder and ffmpeg is bounded by the ring
   buffer. On overflow we drop frames (counted) instead of blocking capture.
-- **Output look:** to be decided by visually comparing three options on real gameplay:
-  (A) cropped pass-through 896×720; (B) re-rendered from the NES canvas as an integer 3× upscale
-  (768×720, perfectly crisp pixels, smaller files); (C) 2× (512×480, cheapest). Default: A.
+- **Output look: A**, the cropped pass-through at 896×720 (D2). The canvas re-renders B (3×,
+  768×720) and C (2×, 512×480) were blurry in the samples.
 - Later: in-process libav, sharing decoded frames with perception (saves one decode), or the
   Pi's HW encoder with zero-copy, but only if profiling says we need it.
 - Demo / too-short sessions: the partial file is deleted.
@@ -286,6 +308,7 @@ SQLite (`rusqlite`, WAL), one writer thread fed by a channel, embedded migration
 | `session_players` | session, slot, score, lines, level, topped_out_frame |
 | `posts` | session, status (queued/posted/failed), attempts, next_attempt, last_error, message_id |
 | `review_items` | id, first/last seen, count, phash, state context (JSON), image path, status, note |
+| `review_pois` | id, item, drawn rect (capture px), optimized rect (canvas px), comment, created_at |
 | `settings` | key, value, updated_at (runtime settings only) |
 
 Data dir `/var/lib/eightbit-bro/`: `bro.sqlite`, `videos/`, `review/` (JPEG plus a canvas PNG
@@ -307,9 +330,9 @@ on the dashboard; everything else runs (PRD TG3). The caption comes from the ses
   ring buffer as-is**, so there's no decoding. 1–2 fps by default, with an optional overlay
   image of the probe regions rendered on demand.
 - **Pages:** Live, Events (paged queries plus SSE tail), Sessions (video via HTTP range
-  requests, post status, retry), Errors and Review (thumbnails, annotate, mark reviewed,
-  download as zip), Health, Settings, Tools: classify an uploaded image, replay a
-  folder/video, capture N raw frames for fixtures.
+  requests, post status, retry), Errors and Review (thumbnails, draw POIs with
+  comments (§3.6), annotate, mark reviewed, download as zip), Health, Settings, Tools:
+  classify an uploaded image, replay a folder/video, capture N raw frames for fixtures.
 - **Replay** runs a second, offline pipeline in a sandbox (separate in-memory state and DB,
   no Telegram, no effect on live recording) at reduced priority, and shows the resulting
   timeline.
@@ -372,8 +395,8 @@ the Health page and logged every minute.
 eightbit-bro/
 ├── Cargo.toml                 # workspace
 ├── crates/
-│   ├── bro-core/              # state types, reducer, events — pure, no IO
-│   ├── bro-vision/            # JPEG decode, NES canvas, palette, probes, tile OCR
+│   ├── bro-heart/             # state types, reducer, events — pure, no IO
+│   ├── bro-vision/            # JPEG decode, NES canvas, palette, probes, POI, tile OCR
 │   ├── bro-games/             # menu, tetris (deep), mario, battle_city, dr_mario, jewelry
 │   ├── bro-capture/           # sources, ring buffer
 │   ├── bro-record/            # cut list, CFR timeline, ffmpeg encoder
@@ -385,7 +408,7 @@ eightbit-bro/
 ├── docs/
 ├── flake.nix                  # nixos-26.05; packages, modules, sd image
 ├── nix/
-│   ├── package.nix            # crane build (added in M0)
+│   ├── package.nix            # rustPlatform build of the workspace
 │   ├── module.nix             # services.eightbit-bro (added in M0)
 │   └── appliance-rpi4.nix     # turns a Pi 4 into an eightbit-bro box
 └── deploy/
@@ -413,8 +436,8 @@ The repo is a **Raspberry Pi drop-in appliance**, in three layers:
 **Drop-in flow:** flash the SD image, plug in the capture card, boot, open the dashboard, set the
 password and Telegram details on the setup page. No secrets to prepare.
 
-- **More flake outputs (M0):** `devShells.default` (Rust toolchain, ffmpeg, sqlite) and
-  `checks` (tests).
+- **More flake outputs:** `packages.default` (the binary; the build runs the tests) and
+  `devShells.default` (Rust toolchain, clippy, rustfmt, ffmpeg, sqlite).
 - **Building for the Pi:** fenek has `boot.binfmt.emulatedSystems = [ "aarch64-linux" ]`, so
   colmena builds the Pi's system on fenek (`buildOnTarget = false`) and copies it over; almost
   everything is substituted from cache.nixos.org. The Rust package itself will be
@@ -436,7 +459,7 @@ password and Telegram details on the setup page. No secrets to prepare.
 
 | | Deliverable | Exit criterion |
 |---|---|---|
-| **M0** | Workspace, flake, sources, ring buffer, NES canvas + geometry calibration, motion capture test, ffmpeg recorder prototype on the Pi | 60 fps uniqueness known; Pi CPU at 60/30 fps measured with the real binary; output-look samples A/B/C |
+| **M0** | Workspace, flake, sources, ring buffer, NES canvas + geometry calibration, POI optimization, CFR timeline, ffmpeg recorder prototype on the Pi | Pi CPU at 30 fps output measured with the real binary |
 | **M1** | Labeling session with the owner (dashboard Tools → capture) | Fixtures for menu pages, 5 games, all Tetris screens/modes, demo |
 | **M2** | Console perception + reducer + review queue + timeline harness | All console-level fixtures and timelines green |
 | **M3** | Tetris deep | Tetris fixtures/timelines green, v1 bugs B1–B4 covered |
@@ -448,9 +471,10 @@ password and Telegram details on the setup page. No secrets to prepare.
 
 | # | Question | Proposal |
 |---|---|---|
-| D1 | Output fps: 30 or 60? | **Decided: 60.** M0 confirms frame uniqueness and the Pi CPU budget; 30 is the fallback only if measurements fail |
-| D2 | Output look (A/B/C, §4.3) | First samples rendered from the Tetris demo; owner picks. Default: B (crisp 3× from the NES canvas) once canvas sampling is calibrated, A until then |
+| D1 | Output fps: 30 or 60? | **Decided: 30.** Capture and perception stay at 60 |
+| D2 | Output look (A/B/C, §4.3) | **Decided: A**, cropped pass-through 896×720; B and C were blurry |
 | D3 | aarch64 build strategy | **Done:** binfmt on fenek (`fl` 89d0f55, rebuilt) |
 | D4 | Pi NixOS 24.11 (EOL) → 26.05 | **Done (2026-11-01):** appliance layout (§10) deployed, rebooted into mainline 6.18.60; capture still 720p at 59.6 fps |
 | D5 | Dashboard stack | Server-rendered htmx (no JS build); revisit if the UI gets very interactive |
 | D6 | Raw full-game captures for tests | Stored on the NAS, canvas sequences in git |
+| D7 | Geometry calibration | With the 896×720 crop, text in the Tetris demo starts ~3 NES px right of the 8×8 tile grid, so tile-snapped POIs come out one tile wider. Calibrate the crop offset on menu/HUD fixtures in M1 so tile edges land on multiples of 8 |

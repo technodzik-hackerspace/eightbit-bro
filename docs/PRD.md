@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.3 (2026-11-02) |
+| Status | Draft v0.4 (2026-11-01) |
 | Owner | Omo Yauhen |
 | Predecessor | `tetris-recorder` (v1, Python) |
 | Next document | `docs/TECH_DESIGN.md` |
@@ -144,7 +144,7 @@ is the menu, a game, or no signal.
   | Black | `InGame{g,…}` | stays `InGame{g,…}` (level transitions, etc.) |
   | Black | none / `NoSignal` | `NoSignal` |
   | Black | `Menu` | stays `Menu` (TBD after the menu capture session) |
-  | Non-black, unrecognized | `InGame{g,…}` | stays `InGame{g,…}` + **UnknownScreen** warning + frame saved for review |
+  | Non-black, unrecognized | `InGame{g,…}` | stays `InGame{g,…}` + **UnknownScreen** warning + frame saved for review (not for `g = Other`, where nothing is recognized by design) |
   | Non-black, unrecognized | none / `NoSignal` / `Menu` | `InGame{Other}` |
 
 - **R5. Positive recognition always wins.** If a recognizer claims a frame, that overrides
@@ -232,10 +232,16 @@ fixtures, registered in one place. No changes to the capture, recording, or even
   disk; the queue has a size cap.
 - **L3.** Each saved item carries context: the previous N recognized states, timestamp, input
   source.
-- **L4.** The dashboard (§12) lets the owner browse queued frames, **annotate** them with notes
-  ("this is the Tetris high-score entry screen"), and mark them reviewed. This is for quality
-  control and for explaining screens to the agent; the agent then turns annotated frames into
-  fixtures and extends recognition in code.
+- **L4.** The dashboard (§12) lets the owner browse queued frames, **annotate** them and mark
+  them reviewed. This is for quality control and for explaining screens to the agent; the agent
+  then turns annotated frames into fixtures and extends recognition in code.
+- **L4a. POI annotations.** On a queued frame the owner draws one or more **points of interest**:
+  a rectangle `(x1, y1, x2, y2)` around the part of the screen that tells this frame apart
+  from others (e.g. the "HIGH SCORE" header of the name-entry screen), plus a **comment for the
+  agent** ("high-score entry screen, Tetris 1P; the name is typed here"). The system may
+  **optimize** the region (trim it to what is actually drawn inside it and align it to the
+  console's 8×8 tiles) so the resulting check is small and fast; the dashboard shows both the
+  drawn and the optimized rectangle. The agent turns each POI into a recognizer probe.
 - **L5.** The running system never changes its own recognition behavior (keeps R2).
 - **L6.** Queued frames (and recorded sessions' raw frames, when kept) can be downloaded as an
   archive from the dashboard (replaces v1's "download the last game" scripts).
@@ -266,20 +272,19 @@ fixtures, registered in one place. No changes to the capture, recording, or even
 
 ### 8.3 Frame rate and stability
 
-- **F1. Target: constant 30 fps** output on the current hardware (Pi 4 + MS2109); v1 was ~10 fps.
-  **Stretch: 60 fps** — measurements show the card delivers clean 720p at ~59 fps (tech design
-  §2), so 60 is a matter of Pi CPU budget, not hardware.
+- **F1. Decided: constant 30 fps** output (v1 was ~10 fps). Capture and recognition still run
+  at the card's 60 fps (tech design §2); the video takes every other frame.
 - **F2. Constant, not computed.** The output timeline is built from capture timestamps; gaps
   are filled by repeating frames and excess frames are dropped, so playback speed is
   always real-time.
 - **F3. Measured.** Per session we log and store captured, dropped and duplicated frame counts.
   Success: **< 0.5 %** dropped or duplicated frames for a full game.
 - **F4. Capture is never blocked** by recognition, encoding, disk or network.
-- **F5. Visual quality.** Crop to the console picture. The output resolution and scaling
-  (native/nearest-neighbour upscale vs pass-through) are chosen by measurement in the tech
-  design.
-- **F6. Path to 60 fps.** The architecture must not cap at 30 fps; 60 fps is a hardware upgrade
-  (capture card, possibly a different host), not a rewrite.
+- **F5. Visual quality. Decided:** the console picture cropped from the capture and passed
+  through at **896×720** (look A). The re-rendered NES-canvas upscales (B: 768×720, C: 512×480)
+  looked blurry in the samples.
+- **F6. Path to 60 fps.** The architecture must not cap at 30 fps; going to 60 fps output is a
+  configuration change (and CPU budget), not a rewrite.
 
 ### 8.4 Where processing happens
 
@@ -354,7 +359,8 @@ eightbit-bro without SSH.
 - **W4. Errors and unknown frames.** Warnings/errors (Telegram failures, capture problems,
   frame drops, recognizer disagreements) and the **review queue** (§7): thumbnails grouped by
   similarity, with context (previous states, timestamp). Actions: label, mark as known
-  non-issue, delete, download a batch for fixture work.
+  non-issue, delete, download a batch for fixture work, and draw POIs with comments for the
+  agent (§7 L4a).
 - **W5. Health.** Input fps, output fps, dropped/duplicated frames, per-stage timings, CPU,
   RAM, temperature, disk usage and budget, capture device status, version/commit.
 - **W6. Settings.** See §12.2.
@@ -434,7 +440,7 @@ NixOS stays the source of truth for the deployment; the dashboard must not fight
 
 | # | Item | Notes / plan |
 |---|---|---|
-| Q1 | **MS2109 capture card** (USB 2.0, MJPEG) | Measured: 720p60 clean at ~59 fps; 1080p60 sends every other frame corrupt; 1080p30 clean. Frame uniqueness at 60 fps still to verify with motion on screen |
+| Q1 | **MS2109 capture card** (USB 2.0, MJPEG) | Measured: 720p60 clean at ~59 fps with 60 unique frames/s; 1080p60 sends every other frame corrupt; 1080p30 clean |
 | Q2 | 30-of-60 fps sampling + NES sprite flicker can hide sprites | Recognize by HUD/background/text only (R6) |
 | Q3 | Pi 4 CPU budget for MJPEG decode + recognition + H.264 encode at 30 fps | M0 benchmarks; HW codec options; fall back to the fenek split (§8.4) |
 | Q4 | Demo detection when joining mid-demo (cold start during the demo) → would be recorded as a dirty human game | Accept for v2.0; investigate demo fingerprints (fixed piece sequence?) |

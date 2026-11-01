@@ -1,0 +1,9 @@
+[package]
+name = "bro-heart"
+description = "Console state tree, observations, events and the reducer. Pure: no IO, no clocks."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true

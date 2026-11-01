@@ -1,0 +1,10 @@
+[package]
+name = "bro-capture"
+description = "Frame sources (device, folder, video) and the shared ring buffer."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+image.workspace = true

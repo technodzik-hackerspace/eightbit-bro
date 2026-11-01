@@ -1,0 +1,13 @@
+[package]
+name = "bro-games"
+description = "Perception: black, menu and per-game recognizers."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+bro-heart.workspace = true
+bro-vision.workspace = true
+
+[dev-dependencies]
+image.workspace = true

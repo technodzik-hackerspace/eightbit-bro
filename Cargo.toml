@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+bro-heart = { path = "crates/bro-heart" }
+bro-vision = { path = "crates/bro-vision" }
+bro-games = { path = "crates/bro-games" }
+bro-capture = { path = "crates/bro-capture" }
+bro-record = { path = "crates/bro-record" }
+
+anyhow = "1"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = "thin"
