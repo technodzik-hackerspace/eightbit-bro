@@ -451,6 +451,6 @@ password and Telegram details on the setup page. No secrets to prepare.
 | D1 | Output fps: 30 or 60? | **Decided: 60.** M0 confirms frame uniqueness and the Pi CPU budget; 30 is the fallback only if measurements fail |
 | D2 | Output look (A/B/C, §4.3) | First samples rendered from the Tetris demo; owner picks. Default: B (crisp 3× from the NES canvas) once canvas sampling is calibrated, A until then |
 | D3 | aarch64 build strategy | **Done:** binfmt on fenek (`fl` 89d0f55, rebuilt) |
-| D4 | Pi NixOS 24.11 (EOL) → 26.05 | **Decided and in progress:** the appliance layout (§10) is deployed ahead of M0; the reboot into the mainline kernel happens with someone near the Pi |
+| D4 | Pi NixOS 24.11 (EOL) → 26.05 | **Done (2026-11-01):** appliance layout (§10) deployed, rebooted into mainline 6.18.60; capture still 720p at 59.6 fps |
 | D5 | Dashboard stack | Server-rendered htmx (no JS build); revisit if the UI gets very interactive |
 | D6 | Raw full-game captures for tests | Stored on the NAS, canvas sequences in git |
