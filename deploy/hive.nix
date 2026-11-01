@@ -19,9 +19,8 @@ in
 
   defaults = {
     imports = [ ../nix/appliance-rpi4.nix ];
-    # Until fenek can build aarch64 (binfmt), build on the Pi; the closure is mostly
-    # substituted from cache.nixos.org.
-    deployment.buildOnTarget = lib.mkDefault true;
+    # Build on the deploying machine (needs aarch64 binfmt, e.g. fenek), not on the Pi.
+    deployment.buildOnTarget = lib.mkDefault false;
   };
 }
 // lib.listToAttrs (map (f: {

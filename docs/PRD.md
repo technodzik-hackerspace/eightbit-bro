@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.2 (2026-11-01) |
+| Status | Draft v0.3 (2026-11-02) |
 | Owner | Omo Yauhen |
 | Predecessor | `tetris-recorder` (v1, Python) |
 | Next document | `docs/TECH_DESIGN.md` |
@@ -364,19 +364,22 @@ eightbit-bro without SSH.
 NixOS stays the source of truth for the deployment; the dashboard must not fight it.
 
 - **Declarative (Nix, read-only in the dashboard):** capture device identity, paths, ports,
-  secrets, memory/disk budgets, and which features are enabled. The dashboard shows them.
+  memory/disk budgets, and which features are enabled. The dashboard shows them.
 - **Runtime (stored in SQLite, editable in the dashboard, take effect without a restart):**
   e.g. pause Telegram posting, enable/disable recording per game, review-queue size, log level,
   live preview on/off. Each change is logged as an event (who/when/old → new).
-- Secrets are never shown or editable in the dashboard.
+- **Secrets are entered in the dashboard and are write-only:** on first boot a setup page asks
+  for the dashboard password and the Telegram bot token and channel. Afterwards the UI shows
+  only "set / not set" with a way to replace them; it never displays them. This is what makes
+  the device a drop-in: flash, plug in, open the dashboard.
 
 ### 12.3 Constraints
 
 - **W7. Never hurts capture.** The dashboard runs at a lower priority than capture,
   recognition and encoding; with N browsers open, F1–F4 (§8.3) still hold. The preview uses
   frames that already exist; it never triggers extra decoding at full rate.
-- **W8. Access:** LAN/Tailscale only, behind a simple shared login (password from the secrets
-  file). Not exposed to the internet.
+- **W8. Access:** LAN/Tailscale only, behind a simple shared login (static password set on
+  the setup page). Not exposed to the internet.
 - **W9. Lightweight:** served by the same binary, no separate database or Node runtime on the
   Pi; works on a phone screen.
 - **W10. API first:** everything the UI shows comes from a documented HTTP/JSON (+ live
@@ -384,13 +387,17 @@ NixOS stays the source of truth for the deployment; the dashboard must not fight
 
 ## 13. Deployment and operations
 
-- **O1.** Repo is a Nix flake: package, dev shell, NixOS module (`services.eightbit-bro`),
-  and the Pi host config. Building for aarch64 must not require compiling on the Pi.
-- **O2.** One command deploys a new version to the Pi (Colmena, like v1), with an easy
-  rollback.
+- **O1. Raspberry Pi drop-in.** The repo is a Nix flake providing the package, a dev shell, the
+  service module (`services.eightbit-bro`), a Pi 4 **appliance** module and a flashable **SD
+  image**. A new box = flash, plug in the capture card, boot, finish setup in the dashboard.
+  Building for aarch64 must not require compiling on the Pi.
+- **O2.** One command deploys a new version to the Pi (Colmena, push-based during
+  development; GitHub CI/CD later), with an easy rollback. Real host configs (address, SSH
+  keys) are gitignored and live on the deploying machine; an example host is committed.
 - **O3.** Fast dev loop: try a local change on the Pi without committing or pushing.
-- **O4.** Configuration: device identity, Telegram credentials (as a secrets file), paths,
-  disk budgets, log level. Sensible defaults; secrets never in the Nix store.
+- **O4.** Configuration: device identity, paths, disk budgets, log level in Nix, with sensible
+  defaults. Telegram credentials and the dashboard password are set in the dashboard (§12.2)
+  and never stored in the Nix store or git.
 - **O5.** Observability: structured logs with frame number and state path; periodic stats
   (fps in/out, drops, per-stage timing, queue depth, RAM); visible via `journalctl`.
 - **O6.** Resource limits on the Pi 4 (1.8 GB RAM, no swap, SD card): the service runs within

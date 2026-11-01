@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Draft v0.1 (2026-11-01) |
+| Status | Draft v0.2 (2026-11-02) |
 | Implements | `docs/PRD.md` v0.2 |
 
 ## 1. Overview
@@ -315,8 +315,13 @@ on the dashboard; everything else runs (PRD TG3). The caption comes from the ses
   timeline.
 - **API:** every page is backed by JSON endpoints under `/api/` (state, events, sessions,
   review, settings, health) plus `/api/stream` (SSE). The HTML is a thin layer over it.
-- **Auth:** one static password from the secrets file → signed session cookie. Listens on
-  LAN/Tailscale (firewall: only `tailscale0` plus the LAN interface). No internet exposure.
+- **Auth:** one static password → signed session cookie. On first boot (no password yet) the
+  dashboard shows a **setup page** that sets the password and the Telegram bot token and
+  channel. Listens on LAN/Tailscale (firewall: only `tailscale0` plus the LAN interface). No
+  internet exposure.
+- **Secrets** (dashboard password hash, bot token) live in a root-only file in the data dir,
+  written by the dashboard, never in the Nix store or git. They are **write-only**: the UI shows
+  "set / not set" and lets you replace them, never displays them.
 - **Settings:** declarative values from Nix are shown read-only; runtime settings live in the
   `settings` table, apply live, and every change is logged as an event.
 
@@ -378,30 +383,51 @@ eightbit-bro/
 │   └── eightbit-bro/          # binary: config + wiring
 ├── fixtures/                  # JPEG fixtures, canvas sequences, timeline YAMLs
 ├── docs/
-└── nix/
-    ├── package.nix            # crane build (native + aarch64 cross)
-    ├── module.nix             # services.eightbit-bro
-    ├── hosts/nix-tetris-recorder.nix
-    ├── hive.nix               # colmena
-    └── secrets/               # gitignored, as in v1
+├── flake.nix                  # nixos-26.05; packages, modules, sd image
+├── nix/
+│   ├── package.nix            # crane build (added in M0)
+│   ├── module.nix             # services.eightbit-bro (added in M0)
+│   └── appliance-rpi4.nix     # turns a Pi 4 into an eightbit-bro box
+└── deploy/
+    ├── hive.nix               # colmena hive (plain, pinned via flake.lock)
+    └── hosts/
+        ├── example.nix        # committed template
+        └── <hostname>.nix     # real hosts: gitignored, live on the deploying machine
 ```
 
-- **Flake outputs:** `packages.{x86_64,aarch64}-linux.default`, a cross-built
-  `packages.x86_64-linux.eightbit-bro-aarch64`, `nixosModules.default`, `devShells.default`
-  (rust toolchain, ffmpeg, sqlite), `checks` (tests), and the `colmena` hive.
-- **Building for the Pi:** the Rust package is **cross-compiled on fenek**, which is fast.
-  The rest of the system closure comes from the binary cache, except for small per-host
-  derivations that need an aarch64 builder. Proposed: enable
-  `boot.binfmt.emulatedSystems = [ "aarch64-linux" ]` on fenek (a one-line change in `fl`), then
-  deploy with `buildOnTarget = false`. v1 compiled on the Pi itself, which is too slow and risks
+The repo is a **Raspberry Pi drop-in appliance**, in three layers:
+
+1. **Generic flake outputs:** the package, `nixosModules.default` (just the service, usable on
+   any NixOS machine, e.g. fenek for replays), `nixosModules.appliance-rpi4`, and
+   `packages.aarch64-linux.sd-image-rpi4`.
+2. **The appliance module** (`nix/appliance-rpi4.nix`): **mainline kernel** (`linux-rpi` is
+   deprecated in nixpkgs and no longer cached by Hydra; mainline is cached and is what the
+   official NixOS aarch64 SD image uses), u-boot + extlinux, zram swap, `/tmp` in RAM, capped
+   journald, key-only SSH, Tailscale, firewall, weekly nix GC, and later the service with the
+   capture card found by USB id.
+3. **Hosts:** `deploy/hosts/<hostname>.nix` adds the hostname, target address, SSH keys and
+   `stateVersion`. Real host files are gitignored and stay on the deploying machine; only
+   `example.nix` is committed. Flakes can't see untracked files, so `deploy/hive.nix` is a
+   plain colmena hive that pins nixpkgs from `flake.lock`.
+
+**Drop-in flow:** flash the SD image, plug in the capture card, boot, open the dashboard, set the
+password and Telegram details on the setup page. No secrets to prepare.
+
+- **More flake outputs (M0):** `devShells.default` (Rust toolchain, ffmpeg, sqlite) and
+  `checks` (tests).
+- **Building for the Pi:** fenek has `boot.binfmt.emulatedSystems = [ "aarch64-linux" ]`, so
+  colmena builds the Pi's system on fenek (`buildOnTarget = false`) and copies it over; almost
+  everything is substituted from cache.nixos.org. The Rust package itself will be
+  **cross-compiled** (fast, no emulation). v1 compiled on the Pi, which is too slow and risks
   OOM for Rust with 1.8 GB and no swap.
-- **Deploy:** `colmena apply --on nix-tetris-recorder` from the local checkout. A path flake,
-  so there's no need to commit or push to test (fixes v1's `rev = "main"` + placeholder hash
-  problem). NixOS generations give rollback.
+- **Deploy (push-based during development):** `colmena apply -f deploy/hive.nix --on
+  nix-tetris-recorder` from the local checkout, so there's no need to commit or push to test
+  (fixes v1's `rev = "main"` + placeholder hash problem). NixOS generations give rollback.
+  Later: GitHub Actions CI/CD (build, test, then deploy or let the Pi pull a released version).
 - **Pi config moves** from `tetris-recorder/nix/` into this repo. The v1 service and module
   are removed in the same change (PRD O7).
-- **Config:** a TOML file generated by the NixOS module (`/etc/eightbit-bro/config.toml`) plus
-  a secrets TOML delivered by colmena `deployment.keys` (bot token, channel, dashboard password).
+- **Config:** a TOML file generated by the NixOS module (`/etc/eightbit-bro/config.toml`) for
+  the declarative settings. Secrets come from the dashboard setup page (§7), not from Nix.
 - **Future split mode (not v2.0):** `Source` and the event bus are traits, so a
   `NetworkSource` (JPEG frames over TCP from a capture-only instance) can be added without
   touching recognition or the recorder.
@@ -423,8 +449,8 @@ eightbit-bro/
 | # | Question | Proposal |
 |---|---|---|
 | D1 | Output fps: 30 or 60? | **Decided: 60.** M0 confirms frame uniqueness and the Pi CPU budget; 30 is the fallback only if measurements fail |
-| D2 | Output look (A/B/C, §4.3) | Owner picks from samples in M0 |
-| D3 | aarch64 build strategy | **Decided:** binfmt on fenek (edit in `fl`, owner rebuilds) |
-| D4 | Pi NixOS 24.11 (EOL) → 25.05/25.11 | **Decided: upgrade** in the same rollout (M6), with someone near the Pi. The Nix layout gets redesigned too: an RPi drop-in appliance instead of v1's `nix/` folder (§10, to be revised) |
+| D2 | Output look (A/B/C, §4.3) | First samples rendered from the Tetris demo; owner picks. Default: B (crisp 3× from the NES canvas) once canvas sampling is calibrated, A until then |
+| D3 | aarch64 build strategy | **Done:** binfmt on fenek (`fl` 89d0f55, rebuilt) |
+| D4 | Pi NixOS 24.11 (EOL) → 26.05 | **Decided and in progress:** the appliance layout (§10) is deployed ahead of M0; the reboot into the mainline kernel happens with someone near the Pi |
 | D5 | Dashboard stack | Server-rendered htmx (no JS build); revisit if the UI gets very interactive |
 | D6 | Raw full-game captures for tests | Stored on the NAS, canvas sequences in git |
