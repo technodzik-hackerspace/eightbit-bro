@@ -3,6 +3,7 @@
 <title>eightbit-bro · Live</title><link rel="stylesheet" href="/static/app.css"></head>
 <body>
 <main>
+  <div class="panel" id="restart" hidden style="margin-bottom:14px;border-color:var(--warn)"></div>
   <div class="cols">
     <div>
       <div class="panel">
@@ -27,6 +28,7 @@
 <script>
 nav("/");
 let since = Date.now();
+let seen = null;
 const $ = (id) => document.getElementById(id);
 
 function setState(path, s) { $("path").textContent = path; since = s; }
@@ -51,8 +53,16 @@ async function refresh() {
     ["CPU temperature", r.temp_c != null ? `${r.temp_c.toFixed(1)} °C` : "–"],
     ["Load", r.load ?? "–"],
     ["Memory (RSS)", r.rss_mb != null ? `${r.rss_mb.toFixed(0)} MB` : "–"],
-    ["Version", s.version],
+    ["Running since", `${when(s.started)} (${ago(s.started)})`],
+    ["Version", `${s.version} · build ${s.build}`],
   ];
+  if (seen && (seen.started !== s.started || seen.build !== s.build)) {
+    $("restart").textContent = seen.build !== s.build
+      ? `Updated: new build ${s.build} started ${when(s.started)}.`
+      : `Restarted at ${when(s.started)}.`;
+    $("restart").hidden = false;
+  }
+  seen = { started: s.started, build: s.build };
   $("health").innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("");
   $("review").textContent = `${s.review.items} / ${s.review.max} unknown screens` +
     (s.review.skipped ? ` · ${s.review.skipped} skipped (queue full)` : "");

@@ -14,6 +14,10 @@ use tokio::sync::broadcast;
 pub struct Live {
     pub ring: Option<Arc<Ring>>,
     pub source: String,
+    /// When this process started (unix ms).
+    pub started: i64,
+    /// Identifies the running binary: its Nix store hash, so every deploy shows up.
+    pub build: String,
     state: Mutex<(ConsoleState, i64)>,
     pub stats: Stats,
     rates: Mutex<Rates>,
@@ -56,6 +60,8 @@ impl Live {
         Live {
             ring,
             source,
+            started: now_ms(),
+            build: build_id(),
             state: Mutex::new((ConsoleState::NoSignal, now_ms())),
             stats: Stats::default(),
             rates: Mutex::new(Rates::default()),
@@ -134,6 +140,17 @@ pub fn spawn_rates(live: Arc<Live>) {
             prev = now;
         }
     });
+}
+
+/// The hash part of the binary's Nix store path, or "dev" outside the store.
+fn build_id() -> String {
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| {
+            let name = exe.strip_prefix("/nix/store").ok()?.iter().next()?.to_str()?.to_owned();
+            Some(name.split('-').next()?.chars().take(8).collect())
+        })
+        .unwrap_or_else(|| "dev".into())
 }
 
 fn read(path: &str) -> Option<String> {

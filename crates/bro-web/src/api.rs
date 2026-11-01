@@ -74,6 +74,8 @@ async fn state(State(ctx): Ctx) -> Json<serde_json::Value> {
         "rates": ctx.live.rates(),
         "review": { "items": items, "max": max_items, "skipped": skipped },
         "version": env!("CARGO_PKG_VERSION"),
+        "build": ctx.live.build,
+        "started": ctx.live.started,
     }))
 }
 
