@@ -72,8 +72,11 @@ that's exactly **3 capture lines per NES line** (720 / 240); horizontally 3.5 px
 The very first frame after a mode switch can be garbage (two half-images glued together),
 so frames whose decode fails are counted and dropped.
 
-**Still to verify:** whether the 60 fps frames are *unique* or partly duplicated. Both test
-captures were static screens. This needs ~1 minute of motion (e.g. the Tetris demo).
+**Frame uniqueness at 60 fps: confirmed.** A 20 s capture of the Tetris demo (1P layout,
+level 13) at 60.05 fps had 0 corrupt frames out of 1,200. The playfield changes every 4 frames
+(the falling piece's gravity at that level), and some changes land on *consecutive* frames
+(e.g. frames 23 and 24), which a card duplicating 30→60 fps couldn't produce. So the card
+really delivers 60 unique frames per second at 720p.
 
 **CPU cost on the Pi** (ffmpeg, 600 frames = 10 s of 720p60 capture):
 
