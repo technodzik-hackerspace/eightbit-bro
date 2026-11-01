@@ -1,0 +1,7 @@
+/target
+result
+result-*
+
+# Real hosts stay local; only the example is committed.
+/deploy/hosts/*.nix
+!/deploy/hosts/example.nix
