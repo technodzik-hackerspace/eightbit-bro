@@ -19,10 +19,7 @@ impl DirSource {
         let mut files = Vec::new();
         for entry in fs::read_dir(dir).with_context(|| format!("reading {}", dir.display()))? {
             let path = entry?.path();
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(str::to_ascii_lowercase);
+            let ext = path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase);
             match ext.as_deref() {
                 Some("jpg" | "jpeg") => files.push((path, false)),
                 Some("png") => files.push((path, true)),
@@ -50,11 +47,7 @@ impl Source for DirSource {
         let bytes = fs::read(path).with_context(|| format!("reading {}", path.display()))?;
         let no = self.pos as u64;
         self.pos += 1;
-        let data = if *png {
-            FrameData::Png(bytes.into())
-        } else {
-            FrameData::Jpeg(bytes.into())
-        };
+        let data = if *png { FrameData::Png(bytes.into()) } else { FrameData::Jpeg(bytes.into()) };
         let ts = Duration::from_nanos(no * 1_000_000_000 / self.fps as u64);
         Ok(Some(RawFrame { no, ts, data }))
     }
@@ -79,11 +72,7 @@ mod tests {
             let bytes = match &f.data {
                 FrameData::Jpeg(b) | FrameData::Png(b) => b.clone(),
             };
-            seen.push((
-                f.no,
-                f.ts.as_nanos(),
-                String::from_utf8(bytes.to_vec()).unwrap(),
-            ));
+            seen.push((f.no, f.ts.as_nanos(), String::from_utf8(bytes.to_vec()).unwrap()));
         }
         fs::remove_dir_all(&dir).unwrap();
         assert_eq!(

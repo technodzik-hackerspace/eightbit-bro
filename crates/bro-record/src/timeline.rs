@@ -106,10 +106,8 @@ mod tests {
 
     fn run(frames: impl IntoIterator<Item = (u64, Duration, bool)>) -> (Vec<u64>, FrameStats) {
         let mut t = Timeline::new(30);
-        let mut out: Vec<u64> = frames
-            .into_iter()
-            .flat_map(|(no, ts, p)| t.push(no, ts, p))
-            .collect();
+        let mut out: Vec<u64> =
+            frames.into_iter().flat_map(|(no, ts, p)| t.push(no, ts, p)).collect();
         out.extend(t.finish());
         (out, t.stats)
     }
@@ -140,15 +138,11 @@ mod tests {
 
     #[test]
     fn capture_gap_repeats_the_last_frame() {
-        let (out, stats) = run((0..120)
-            .filter(|n| !(40..60).contains(n))
-            .map(|n| (n, at_60(n), false)));
+        let (out, stats) =
+            run((0..120).filter(|n| !(40..60).contains(n)).map(|n| (n, at_60(n), false)));
         assert_eq!(out.len(), 61, "real time is kept");
         assert_eq!(stats.duplicated, 9);
-        assert_eq!(
-            &out[19..31],
-            &[38, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 60]
-        );
+        assert_eq!(&out[19..31], &[38, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 60]);
     }
 
     #[test]

@@ -144,8 +144,8 @@ is the menu, a game, or no signal.
   | Black | `InGame{g,…}` | stays `InGame{g,…}` (level transitions, etc.) |
   | Black | none / `NoSignal` | `NoSignal` |
   | Black | `Menu` | stays `Menu` (TBD after the menu capture session) |
-  | Non-black, unrecognized | `InGame{g,…}` | stays `InGame{g,…}` + **UnknownScreen** warning + frame saved for review (not for `g = Other`, where nothing is recognized by design) |
-  | Non-black, unrecognized | none / `NoSignal` / `Menu` | `InGame{Other}` |
+  | Non-black, unrecognized | `InGame{g,…}` | stays `InGame{g,…}` + frame goes to the review queue (§7) |
+  | Non-black, unrecognized | none / `NoSignal` / `Menu` | `InGame{Other}` + frame goes to the review queue |
 
 - **R5. Positive recognition always wins.** If a recognizer claims a frame, that overrides
   inheritance (e.g. the menu appearing during "Tetris" means the player reset).
@@ -226,10 +226,13 @@ fixtures, registered in one place. No changes to the capture, recording, or even
 
 ## 7. The learning loop
 
-- **L1.** Every `UnknownScreen` (R4) logs a warning with the frame number, the current state
-  and the reason, and saves the frame to a **review queue** on disk.
-- **L2.** Near-duplicate unknown frames are deduplicated so one stuck screen doesn't fill the
-  disk; the queue has a size cap.
+- **L1.** Every unrecognized frame (R4), in any state including `InGame{Other}`, is offered to
+  the **review queue** on disk. A frame that becomes a new item logs an `UnknownScreen`
+  warning with the frame number and the current state.
+- **L2.** Near-duplicate frames are deduplicated (perceptual hash): a repeat only bumps the
+  item's count and last-seen time. The queue holds at most **100 items**; when it is full, the
+  oldest already-reviewed item makes room, and if every item is still unreviewed new screens
+  are counted but not saved until the owner reviews or deletes some.
 - **L3.** Each saved item carries context: the previous N recognized states, timestamp, input
   source.
 - **L4.** The dashboard (§12) lets the owner browse queued frames, **annotate** them and mark

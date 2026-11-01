@@ -12,10 +12,7 @@ pub struct Ring {
 
 impl Ring {
     pub fn new(capacity: usize) -> Ring {
-        Ring {
-            frames: Mutex::new(VecDeque::with_capacity(capacity)),
-            capacity,
-        }
+        Ring { frames: Mutex::new(VecDeque::with_capacity(capacity)), capacity }
     }
 
     /// Adds a frame, evicting the oldest when full. Frame numbers must increase.
@@ -53,11 +50,7 @@ mod tests {
     use crate::FrameData;
 
     fn frame(no: u64) -> RawFrame {
-        RawFrame {
-            no,
-            ts: Duration::ZERO,
-            data: FrameData::Jpeg(Arc::from(&[][..])),
-        }
+        RawFrame { no, ts: Duration::ZERO, data: FrameData::Jpeg(Arc::from(&[][..])) }
     }
 
     #[test]

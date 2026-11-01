@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use bro_vision::Geometry;
 use serde::Deserialize;
 
@@ -10,26 +10,77 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    /// Database, review queue and secrets.
+    pub data_dir: PathBuf,
     pub input: Input,
     /// Where the console picture is in the frame; defaults to the MS2109 at 720p.
     #[serde(default = "default_geometry")]
     pub geometry: Geometry,
+    #[serde(default)]
+    pub review: Review,
+    /// The dashboard; without it the binary replays its input and exits.
+    pub web: Option<Web>,
 }
 
-/// A folder of frames for now; the V4L2 device and video files come next.
+/// Exactly one of `device`, `dir` or `video`.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Input {
-    pub dir: PathBuf,
+    /// Capture device, by stable id (`/dev/v4l/by-id/...`).
+    pub device: Option<PathBuf>,
+    /// A folder of frames.
+    pub dir: Option<PathBuf>,
+    /// A video file.
+    pub video: Option<PathBuf>,
+    /// Nominal frame rate of `dir` and `video` inputs.
     #[serde(default = "default_fps")]
     pub fps: u32,
 }
 
+pub enum InputKind<'a> {
+    Device(&'a Path),
+    Dir(&'a Path),
+    Video(&'a Path),
+}
+
+impl Input {
+    pub fn kind(&self) -> Result<InputKind<'_>> {
+        match (&self.device, &self.dir, &self.video) {
+            (Some(p), None, None) => Ok(InputKind::Device(p)),
+            (None, Some(p), None) => Ok(InputKind::Dir(p)),
+            (None, None, Some(p)) => Ok(InputKind::Video(p)),
+            _ => bail!("[input] needs exactly one of device, dir or video"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Review {
+    #[serde(default = "default_max_items")]
+    pub max_items: usize,
+}
+
+impl Default for Review {
+    fn default() -> Self {
+        Review { max_items: default_max_items() }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Web {
+    pub listen: String,
+}
+
 impl Config {
-    pub fn load(path: &Path) -> Result<Config> {
+    pub fn load(path: &Path) -> Result<(Config, String)> {
         let text =
             fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-        toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))
+        let config: Config =
+            toml::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
+        config.input.kind()?;
+        Ok((config, text))
     }
 }
 
@@ -41,23 +92,39 @@ fn default_fps() -> u32 {
     60
 }
 
+fn default_max_items() -> usize {
+    100
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn minimal_config_uses_defaults() {
-        let c: Config = toml::from_str("[input]\ndir = \"/frames\"\n").unwrap();
+        let c: Config = toml::from_str("data_dir = \"/d\"\n[input]\ndir = \"/frames\"\n").unwrap();
         assert_eq!(c.input.fps, 60);
         assert_eq!(c.geometry, Geometry::MS2109_720P);
+        assert_eq!(c.review.max_items, 100);
+        assert!(c.web.is_none());
+        assert!(matches!(c.input.kind().unwrap(), InputKind::Dir(_)));
     }
 
     #[test]
-    fn geometry_can_be_overridden() {
+    fn device_with_dashboard() {
         let c: Config = toml::from_str(
-            "[input]\ndir = \"/frames\"\n[geometry.picture]\nx1 = 0\ny1 = 0\nx2 = 896\ny2 = 720\n",
+            "data_dir = \"/d\"\n[input]\ndevice = \"/dev/v4l/by-id/x\"\n[web]\nlisten = \"0.0.0.0:8080\"\n[geometry.picture]\nx1 = 0\ny1 = 0\nx2 = 896\ny2 = 720\n",
         )
         .unwrap();
+        assert!(matches!(c.input.kind().unwrap(), InputKind::Device(_)));
         assert_eq!(c.geometry.picture.width(), 896);
+        assert_eq!(c.web.unwrap().listen, "0.0.0.0:8080");
+    }
+
+    #[test]
+    fn input_needs_exactly_one_source() {
+        let c: Config =
+            toml::from_str("data_dir = \"/d\"\n[input]\ndir = \"/a\"\nvideo = \"/b\"\n").unwrap();
+        assert!(c.input.kind().is_err());
     }
 }

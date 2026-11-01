@@ -37,10 +37,7 @@ impl Palette {
         let mut clusters: Vec<(u32, [u64; 3])> = Vec::new();
         for (_, (count, sum)) in bins.into_iter().filter(|(_, (n, _))| *n >= min_count) {
             let color = mean(count, sum);
-            match clusters
-                .iter_mut()
-                .find(|(n, s)| dist(mean(*n, *s), color) <= max_dist)
-            {
+            match clusters.iter_mut().find(|(n, s)| dist(mean(*n, *s), color) <= max_dist) {
                 Some((n, s)) => {
                     *n += count;
                     for (s, v) in s.iter_mut().zip(sum) {
@@ -50,10 +47,7 @@ impl Palette {
                 None => clusters.push((count, sum)),
             }
         }
-        Palette {
-            colors: clusters.into_iter().map(|(n, s)| mean(n, s)).collect(),
-            max_dist,
-        }
+        Palette { colors: clusters.into_iter().map(|(n, s)| mean(n, s)).collect(), max_dist }
     }
 
     pub fn quantize(&self, c: [u8; 3]) -> u8 {
@@ -100,11 +94,7 @@ mod tests {
     fn tetris_frame_quantizes_mostly_sure() {
         let (img, geo, canvas) = fixtures::tetris_1p();
         let palette = Palette::learn(canvas.rgb.iter(), 20, 40);
-        assert!(
-            (5..=32).contains(&palette.colors.len()),
-            "{} colours",
-            palette.colors.len()
-        );
+        assert!((5..=32).contains(&palette.colors.len()), "{} colours", palette.colors.len());
         let canvas = NesCanvas::sample(&img, &geo, Some(&palette));
         let unsure = canvas.px.iter().filter(|&&p| p == UNSURE).count();
         assert!(unsure * 100 < canvas.px.len() * 5, "{unsure} unsure pixels");

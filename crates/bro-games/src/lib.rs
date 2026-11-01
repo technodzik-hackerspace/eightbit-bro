@@ -57,13 +57,7 @@ mod tests {
 
     fn canvas(red: u8) -> NesCanvas {
         let img = image::RgbImage::from_pixel(256, 240, image::Rgb([red, 200, 200]));
-        NesCanvas::sample(
-            &img,
-            &bro_vision::Geometry {
-                picture: NesCanvas::full(),
-            },
-            None,
-        )
+        NesCanvas::sample(&img, &bro_vision::Geometry { picture: NesCanvas::full() }, None)
     }
 
     #[test]
@@ -86,13 +80,8 @@ mod tests {
     fn black_comes_first() {
         let p = Perception::new(vec![Box::new(Fake(GameId::Tetris, 0))]);
         let img = image::RgbImage::new(256, 240);
-        let black = NesCanvas::sample(
-            &img,
-            &bro_vision::Geometry {
-                picture: NesCanvas::full(),
-            },
-            None,
-        );
+        let black =
+            NesCanvas::sample(&img, &bro_vision::Geometry { picture: NesCanvas::full() }, None);
         assert_eq!(p.perceive(&black, None), Seen::Black);
     }
 }

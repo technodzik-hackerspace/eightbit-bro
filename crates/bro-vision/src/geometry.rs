@@ -14,12 +14,7 @@ pub struct Rect {
 impl Rect {
     /// Normalizes the corners, so a rectangle drawn from any corner works.
     pub fn new(x1: u32, y1: u32, x2: u32, y2: u32) -> Self {
-        Rect {
-            x1: x1.min(x2),
-            y1: y1.min(y2),
-            x2: x1.max(x2),
-            y2: y1.max(y2),
-        }
+        Rect { x1: x1.min(x2), y1: y1.min(y2), x2: x1.max(x2), y2: y1.max(y2) }
     }
 
     pub fn width(&self) -> u32 {
@@ -41,12 +36,7 @@ impl Rect {
     pub fn intersect(&self, other: &Rect) -> Rect {
         let x1 = self.x1.max(other.x1);
         let y1 = self.y1.max(other.y1);
-        Rect {
-            x1,
-            y1,
-            x2: self.x2.min(other.x2).max(x1),
-            y2: self.y2.min(other.y2).max(y1),
-        }
+        Rect { x1, y1, x2: self.x2.min(other.x2).max(x1), y2: self.y2.min(other.y2).max(y1) }
     }
 
     pub fn contains(&self, other: &Rect) -> bool {
@@ -72,14 +62,13 @@ pub struct Geometry {
 }
 
 impl Geometry {
-    pub const MS2109_720P: Geometry = Geometry {
-        picture: Rect {
-            x1: 192,
-            y1: 0,
-            x2: 1088,
-            y2: 720,
-        },
-    };
+    pub const MS2109_720P: Geometry =
+        Geometry { picture: Rect { x1: 192, y1: 0, x2: 1088, y2: 720 } };
+
+    /// Whether a frame of this size contains the whole picture.
+    pub fn fits(&self, width: u32, height: u32) -> bool {
+        self.picture.x2 <= width && self.picture.y2 <= height && !self.picture.is_empty()
+    }
 
     /// The capture pixel at the centre of NES pixel `(nx, ny)`.
     pub fn sample_point(&self, nx: u32, ny: u32) -> (u32, u32) {
@@ -129,10 +118,7 @@ mod tests {
 
     #[test]
     fn snap_out_to_tiles() {
-        assert_eq!(
-            Rect::new(9, 15, 17, 16).snap_out(8),
-            Rect::new(8, 8, 24, 16)
-        );
+        assert_eq!(Rect::new(9, 15, 17, 16).snap_out(8), Rect::new(8, 8, 24, 16));
         assert_eq!(Rect::new(8, 8, 16, 16).snap_out(8), Rect::new(8, 8, 16, 16));
     }
 
@@ -141,10 +127,7 @@ mod tests {
         let g = Geometry::MS2109_720P;
         assert_eq!(g.sample_point(0, 0), (193, 1));
         assert_eq!(g.sample_point(255, 239), (1086, 718));
-        assert_eq!(
-            g.to_canvas(Rect::new(192, 0, 1088, 720)),
-            Rect::new(0, 0, 256, 240)
-        );
+        assert_eq!(g.to_canvas(Rect::new(192, 0, 1088, 720)), Rect::new(0, 0, 256, 240));
         // Outside the picture (pillarbox) is clipped away.
         assert_eq!(g.to_canvas(Rect::new(0, 0, 199, 6)), Rect::new(0, 0, 2, 2));
     }

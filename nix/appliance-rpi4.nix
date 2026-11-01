@@ -4,7 +4,18 @@
 { lib, pkgs, ... }:
 
 {
+  imports = [ ./module.nix ];
+
   nixpkgs.hostPlatform = "aarch64-linux";
+
+  services.eightbit-bro = {
+    enable = true;
+    # Built under emulation on the deploying machine: skip the tests there, CI runs them.
+    package = (pkgs.callPackage ./package.nix { }).overrideAttrs { doCheck = false; };
+    # LAN and Tailscale only (PRD W8): the Pi sits behind the hackerspace NAT.
+    openFirewall = true;
+    settings.input.device = "/dev/v4l/by-id/usb-MACROSILICON_USB3._0_capture-video-index0";
+  };
 
   boot = {
     # Mainline kernel: built and cached by Hydra (linux-rpi is deprecated and uncached).

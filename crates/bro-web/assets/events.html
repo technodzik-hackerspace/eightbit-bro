@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eightbit-bro · Events</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+<main>
+  <h1>Events</h1>
+  <div class="panel">
+    <input id="filter" placeholder="Filter (e.g. Tetris, unknown, Menu)">
+    <table><thead><tr><th>Time</th><th>Frame</th><th>Event</th></tr></thead><tbody id="rows"></tbody></table>
+    <div class="row" style="margin-top:10px"><button id="more">Older</button></div>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+nav("/events");
+const rows = document.getElementById("rows");
+const filter = document.getElementById("filter");
+let oldest = null;
+
+function row(e) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td class="small">${when(e.ts)}</td><td class="small">${e.frame_no}</td><td>${describe(e.kind)}</td>`;
+  tr.dataset.text = JSON.stringify(e.kind).toLowerCase();
+  apply(tr);
+  return tr;
+}
+function apply(tr) {
+  const q = filter.value.trim().toLowerCase();
+  tr.style.display = !q || tr.dataset.text.includes(q) ? "" : "none";
+}
+async function more() {
+  const { events } = await api(`/events?limit=100${oldest ? `&before=${oldest}` : ""}`);
+  events.forEach((e) => rows.append(row(e)));
+  if (events.length) oldest = events[events.length - 1].id;
+  document.getElementById("more").disabled = events.length < 100;
+}
+filter.oninput = () => [...rows.children].forEach(apply);
+document.getElementById("more").onclick = more;
+stream({ event: (e) => rows.prepend(row(e)) });
+more();
+</script>
+</body></html>

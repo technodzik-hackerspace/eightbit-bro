@@ -12,15 +12,14 @@ pub struct Event {
 pub enum EventKind {
     /// The state path changed (PRD E1).
     Changed { from: String, to: String },
-    /// A non-black frame nobody claimed while in a game: the state is kept and the frame goes
-    /// to the review queue (PRD R4, L1).
-    UnknownScreen { state: String },
+    /// A frame nobody claimed was saved to the review queue as a new item (PRD R4, L1).
+    /// Emitted by the review queue, once per deduplicated item, not by `reduce`.
+    UnknownScreen { item: i64, state: String },
 }
 
 /// Next state and the events of the transition. Start from `ConsoleState::NoSignal`, which
 /// behaves like "no previous state" in every rule.
 pub fn reduce(prev: &ConsoleState, obs: &Observation) -> (ConsoleState, Vec<Event>) {
-    let mut events = Vec::new();
     let next = match (&obs.seen, prev) {
         (Seen::SignalLost, _) => ConsoleState::NoSignal,
         // R5: positive recognition always wins.
@@ -28,34 +27,16 @@ pub fn reduce(prev: &ConsoleState, obs: &Observation) -> (ConsoleState, Vec<Even
         (Seen::Game(game), _) => enter_game(prev, *game),
         // R4: black frames keep the game (level transitions) and the menu.
         (Seen::Black, _) => prev.clone(),
-        // In `Other` nothing is recognized by definition, so there is nothing to review.
-        (
-            Seen::Unrecognized,
-            ConsoleState::InGame {
-                game: GameId::Other,
-                ..
-            },
-        ) => prev.clone(),
-        (Seen::Unrecognized, ConsoleState::InGame { .. }) => {
-            events.push(Event {
-                frame_no: obs.frame_no,
-                kind: EventKind::UnknownScreen { state: prev.path() },
-            });
-            prev.clone()
-        }
+        // R4: the game is kept; the frame itself goes to the review queue (outside `reduce`).
+        (Seen::Unrecognized, ConsoleState::InGame { .. }) => prev.clone(),
         (Seen::Unrecognized, _) => enter_game(prev, GameId::Other),
     };
 
     let (from, to) = (prev.path(), next.path());
-    if from != to {
-        events.insert(
-            0,
-            Event {
-                frame_no: obs.frame_no,
-                kind: EventKind::Changed { from, to },
-            },
-        );
-    }
+    let events = match from == to {
+        true => Vec::new(),
+        false => vec![Event { frame_no: obs.frame_no, kind: EventKind::Changed { from, to } }],
+    };
     (next, events)
 }
 
@@ -66,11 +47,7 @@ fn enter_game(prev: &ConsoleState, game: GameId) -> ConsoleState {
         ConsoleState::Menu(m) => m.highlighted.clone(),
         ConsoleState::NoSignal => None,
     };
-    ConsoleState::InGame {
-        game,
-        detail: GameDetail::None,
-        menu_selection,
-    }
+    ConsoleState::InGame { game, detail: GameDetail::None, menu_selection }
 }
 
 #[cfg(test)]
@@ -79,19 +56,11 @@ mod tests {
     use crate::state::MenuState;
 
     fn menu(cursor: u8, title: &str) -> ConsoleState {
-        ConsoleState::Menu(MenuState {
-            page: 1,
-            cursor,
-            highlighted: Some(title.into()),
-        })
+        ConsoleState::Menu(MenuState { page: 1, cursor, highlighted: Some(title.into()) })
     }
 
     fn in_game(game: GameId) -> ConsoleState {
-        ConsoleState::InGame {
-            game,
-            detail: GameDetail::None,
-            menu_selection: None,
-        }
+        ConsoleState::InGame { game, detail: GameDetail::None, menu_selection: None }
     }
 
     fn step(prev: &ConsoleState, seen: Seen) -> (ConsoleState, Vec<EventKind>) {
@@ -109,10 +78,7 @@ mod tests {
 
     #[test]
     fn r4_black_without_state_is_no_signal() {
-        assert_eq!(
-            step(&ConsoleState::NoSignal, Seen::Black),
-            (ConsoleState::NoSignal, vec![])
-        );
+        assert_eq!(step(&ConsoleState::NoSignal, Seen::Black), (ConsoleState::NoSignal, vec![]));
     }
 
     #[test]
@@ -122,22 +88,11 @@ mod tests {
     }
 
     #[test]
-    fn r4_unrecognized_in_game_keeps_game_and_warns() {
-        let prev = in_game(GameId::Tetris);
-        let (next, events) = step(&prev, Seen::Unrecognized);
-        assert_eq!(next, prev);
-        assert_eq!(
-            events,
-            vec![EventKind::UnknownScreen {
-                state: "InGame/Tetris".into()
-            }]
-        );
-    }
-
-    #[test]
-    fn r4_unrecognized_in_other_is_quiet() {
-        let prev = in_game(GameId::Other);
-        assert_eq!(step(&prev, Seen::Unrecognized), (prev, vec![]));
+    fn r4_unrecognized_in_game_keeps_game() {
+        for game in [GameId::Tetris, GameId::Other] {
+            let prev = in_game(game);
+            assert_eq!(step(&prev, Seen::Unrecognized), (prev, vec![]));
+        }
     }
 
     #[test]
@@ -159,10 +114,7 @@ mod tests {
         );
         assert_eq!(
             events,
-            vec![EventKind::Changed {
-                from: "Menu/p1/c3".into(),
-                to: "InGame/Other".into()
-            }]
+            vec![EventKind::Changed { from: "Menu/p1/c3".into(), to: "InGame/Other".into() }]
         );
     }
 
@@ -170,11 +122,7 @@ mod tests {
     fn r5_menu_during_game_means_reset() {
         let (next, _) = step(
             &in_game(GameId::Tetris),
-            Seen::Menu(MenuState {
-                page: 1,
-                cursor: 0,
-                highlighted: None,
-            }),
+            Seen::Menu(MenuState { page: 1, cursor: 0, highlighted: None }),
         );
         assert_eq!(next.path(), "Menu/p1/c0");
     }

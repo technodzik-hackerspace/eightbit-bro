@@ -7,7 +7,7 @@ mod palette;
 mod poi;
 mod probe;
 
-pub use canvas::{H, NesCanvas, UNSURE, W};
+pub use canvas::{H, NesCanvas, UNSURE, W, hamming};
 pub use geometry::{Geometry, Rect};
 pub use palette::Palette;
 pub use poi::optimize_poi;
@@ -26,9 +26,7 @@ pub(crate) mod fixtures {
             "/../../fixtures/frames/tetris_1p_demo_crop_896x720.png"
         );
         let img = image::open(path).unwrap().to_rgb8();
-        let geo = Geometry {
-            picture: Rect::new(0, 0, 896, 720),
-        };
+        let geo = Geometry { picture: Rect::new(0, 0, 896, 720) };
         let canvas = NesCanvas::sample(&img, &geo, None);
         (img, geo, canvas)
     }

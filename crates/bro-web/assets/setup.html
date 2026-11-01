@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eightbit-bro · Setup</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+<div class="center panel">
+  <h1>👾 Set up eightbit-bro</h1>
+  <p class="muted small">First start: choose the dashboard password. Telegram can be set now or later in Settings.
+    These are stored on the device only and never shown again.</p>
+  <form id="f">
+    <label for="password">Dashboard password (8+ characters)</label>
+    <input id="password" type="password" autocomplete="new-password" required minlength="8">
+    <label for="password2">Repeat password</label>
+    <input id="password2" type="password" autocomplete="new-password" required>
+    <label for="token">Telegram bot token (optional)</label><input id="token" type="password" autocomplete="off">
+    <label for="chat">Telegram channel (optional)</label><input id="chat" placeholder="@channel or -100…">
+    <div class="row" style="margin-top:14px"><button class="primary" type="submit">Save and open the dashboard</button></div>
+    <div class="err" id="err"></div>
+  </form>
+</div>
+<script src="/static/app.js"></script>
+<script>
+const $ = (x) => document.getElementById(x);
+$("f").onsubmit = async (e) => {
+  e.preventDefault();
+  $("err").textContent = "";
+  if ($("password").value !== $("password2").value) { $("err").textContent = "The passwords differ."; return; }
+  try {
+    await api("/setup", { json: { password: $("password").value, telegram_token: $("token").value, telegram_chat: $("chat").value } });
+    location.href = "/";
+  } catch (err) {
+    $("err").innerHTML = err.message === "already set up" ? 'Already set up. <a href="/login">Log in</a>.' : esc(err.message);
+  }
+};
+</script>
+</body></html>

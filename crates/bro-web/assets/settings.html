@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eightbit-bro · Settings</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+<main>
+  <h1>Settings</h1>
+  <h2>Secrets</h2>
+  <div class="panel">
+    <p class="muted small">Write-only: stored on the device, never shown again. Leave a field empty to keep it.</p>
+    <table id="secrets"></table>
+    <label for="password">New dashboard password</label><input id="password" type="password" autocomplete="new-password">
+    <label for="token">Telegram bot token</label><input id="token" type="password" autocomplete="off">
+    <label for="chat">Telegram channel</label><input id="chat" placeholder="@channel or -100…">
+    <div class="row" style="margin-top:10px"><button class="primary" id="save">Save</button><span class="muted small" id="msg"></span></div>
+    <div class="err" id="err"></div>
+  </div>
+  <h2>Declarative (from NixOS, read-only)</h2>
+  <div class="panel"><pre id="config"></pre></div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+nav("/settings");
+const $ = (x) => document.getElementById(x);
+async function load() {
+  const s = await api("/secrets");
+  const row = (name, set) => `<tr><th>${name}</th><td>${set ? "set" : '<span class="muted">not set</span>'}</td></tr>`;
+  $("secrets").innerHTML = row("Dashboard password", s.password) + row("Telegram bot token", s.telegram_token) + row("Telegram channel", s.telegram_chat);
+  $("config").textContent = (await api("/config")).text;
+}
+$("save").onclick = async () => {
+  $("err").textContent = "";
+  const body = {};
+  if ($("password").value) body.password = $("password").value;
+  if ($("token").value) body.telegram_token = $("token").value;
+  if ($("chat").value) body.telegram_chat = $("chat").value;
+  try {
+    await api("/secrets", { json: body });
+    ["password", "token", "chat"].forEach((k) => $(k).value = "");
+    $("msg").textContent = "saved"; setTimeout(() => $("msg").textContent = "", 1500); load();
+  } catch (e) { $("err").textContent = e.message; }
+};
+load();
+</script>
+</body></html>

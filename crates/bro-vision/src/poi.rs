@@ -53,27 +53,15 @@ mod tests {
     // On the fixture (896×720, 3.5 × 3 capture px per NES pixel) the "SCORE" label is canvas
     // rows 16..24, x 107..147: the crop isn't tile-calibrated yet, so the letters sit ~3 px
     // right of the tile grid. Drawn a bit loosely around the text, on the black.
-    const SCORE_DRAWN: Rect = Rect {
-        x1: 365,
-        y1: 48,
-        x2: 516,
-        y2: 72,
-    };
+    const SCORE_DRAWN: Rect = Rect { x1: 365, y1: 48, x2: 516, y2: 72 };
 
     #[test]
     fn trims_and_snaps_to_tiles() {
         let (_, geo, canvas) = fixtures::tetris_1p();
         let poi = optimize_poi(&canvas, &geo, SCORE_DRAWN).unwrap();
         let drawn = geo.to_canvas(SCORE_DRAWN);
-        assert_eq!(
-            poi.x1 % 8 + poi.y1 % 8 + poi.x2 % 8 + poi.y2 % 8,
-            0,
-            "{poi:?}"
-        );
-        assert!(
-            poi.area() <= drawn.snap_out(8).area(),
-            "{poi:?} vs drawn {drawn:?}"
-        );
+        assert_eq!(poi.x1 % 8 + poi.y1 % 8 + poi.x2 % 8 + poi.y2 % 8, 0, "{poi:?}");
+        assert!(poi.area() <= drawn.snap_out(8).area(), "{poi:?} vs drawn {drawn:?}");
         // One tile row high; 5 letters span 6 tiles while the crop is off the grid.
         assert_eq!(poi, Rect::new(104, 16, 152, 24));
     }
@@ -90,10 +78,7 @@ mod tests {
         let (_, geo, canvas) = fixtures::tetris_1p();
         // Inside the empty middle well.
         let poi = optimize_poi(&canvas, &geo, Rect::new(400, 300, 480, 400)).unwrap();
-        assert_eq!(
-            poi,
-            geo.to_canvas(Rect::new(400, 300, 480, 400)).snap_out(8)
-        );
+        assert_eq!(poi, geo.to_canvas(Rect::new(400, 300, 480, 400)).snap_out(8));
     }
 
     #[test]
@@ -107,15 +92,8 @@ mod tests {
         assert!(probe.matches(&canvas, 0.1));
 
         // The same probe one tile row down sits on "LINES".
-        let lines = Rect {
-            y1: score.y1 + 16,
-            y2: score.y2 + 16,
-            ..score
-        };
-        let moved = Probe {
-            rect: lines,
-            px: probe.px.clone(),
-        };
+        let lines = Rect { y1: score.y1 + 16, y2: score.y2 + 16, ..score };
+        let moved = Probe { rect: lines, px: probe.px.clone() };
         assert!(!moved.matches(&canvas, 0.1));
     }
 }

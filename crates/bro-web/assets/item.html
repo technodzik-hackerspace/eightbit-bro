@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eightbit-bro · Review item</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+<main>
+  <div class="row" style="justify-content:space-between">
+    <h1 id="title">Review item</h1>
+    <div class="row">
+      <button id="next">Next new →</button>
+    </div>
+  </div>
+  <div class="cols">
+    <div>
+      <div class="editor" id="editor">
+        <img id="img" alt="frame">
+        <canvas id="ov"></canvas>
+      </div>
+      <div class="legend muted small" style="margin-top:6px">
+        <span><i class="sw" style="background:#4f8cff"></i>new region</span>
+        <span><i class="sw" style="background:#d29922"></i>drawn</span>
+        <span><i class="sw" style="background:#3fb950"></i>optimized (8×8 tiles)</span>
+        <a id="canvaslink" target="_blank">NES canvas 256×240</a>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <div id="meta" class="small"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="reviewed">Mark reviewed</button>
+          <button id="ignored">Known non-issue</button>
+          <button id="reopen">Reopen</button>
+          <button id="del" class="danger">Delete</button>
+        </div>
+        <label for="note">Note</label>
+        <textarea id="note" rows="2" placeholder="What is this screen?"></textarea>
+        <div class="row" style="margin-top:6px"><button id="savenote">Save note</button><span class="muted small" id="notemsg"></span></div>
+      </div>
+
+      <h2>New POI</h2>
+      <div class="panel">
+        <div class="muted small">Drag on the frame around what tells this screen apart from others.</div>
+        <div class="row" style="margin-top:8px">
+          <input id="x1" type="number" placeholder="x1" style="width:22%"><input id="y1" type="number" placeholder="y1" style="width:22%">
+          <input id="x2" type="number" placeholder="x2" style="width:22%"><input id="y2" type="number" placeholder="y2" style="width:22%">
+        </div>
+        <label for="comment">Comment for the agent</label>
+        <textarea id="comment" rows="3" placeholder="e.g. Tetris high-score entry screen; the name is typed here"></textarea>
+        <div class="row" style="margin-top:8px"><button class="primary" id="save" disabled>Save POI</button><button id="clear">Clear</button></div>
+        <div class="err" id="err"></div>
+      </div>
+
+      <h2>POIs</h2>
+      <div class="panel" id="pois"></div>
+    </div>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+nav("/review");
+const id = Number(location.pathname.split("/").pop());
+const $ = (x) => document.getElementById(x);
+const img = $("img"), ov = $("ov"), ctx = ov.getContext("2d");
+let pois = [], pending = null, drag = null, hover = null;
+
+img.src = `/api/review/${id}/frame.jpg`;
+$("canvaslink").href = `/api/review/${id}/canvas.png`;
+img.onload = () => { ov.width = img.naturalWidth; ov.height = img.naturalHeight; draw(); };
+
+function toImg(e) {
+  const r = ov.getBoundingClientRect();
+  const x = Math.round((e.clientX - r.left) * ov.width / r.width);
+  const y = Math.round((e.clientY - r.top) * ov.height / r.height);
+  return [Math.max(0, Math.min(ov.width, x)), Math.max(0, Math.min(ov.height, y))];
+}
+function norm(a, b) {
+  return { x1: Math.min(a[0], b[0]), y1: Math.min(a[1], b[1]), x2: Math.max(a[0], b[0]), y2: Math.max(a[1], b[1]) };
+}
+function rect(r, color, opts = {}) {
+  const lw = Math.max(2, ov.width / 400);
+  ctx.save();
+  ctx.lineWidth = lw; ctx.strokeStyle = color; ctx.setLineDash(opts.dash ? [lw * 4, lw * 3] : []);
+  if (opts.fill) { ctx.fillStyle = color + "33"; ctx.fillRect(r.x1, r.y1, r.x2 - r.x1, r.y2 - r.y1); }
+  ctx.strokeRect(r.x1, r.y1, r.x2 - r.x1, r.y2 - r.y1);
+  if (opts.label) {
+    ctx.font = `bold ${Math.round(ov.height / 30)}px system-ui`; ctx.fillStyle = color;
+    ctx.fillText(opts.label, r.x1 + lw * 2, Math.max(r.y1 - lw * 2, ov.height / 30));
+  }
+  ctx.restore();
+}
+function draw() {
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  pois.forEach((p, i) => {
+    const hl = hover === p.id;
+    rect(p.drawn, "#d29922", { dash: true, label: `#${i + 1}` });
+    if (p.optimized_capture) rect(p.optimized_capture, hl ? "#7ee787" : "#3fb950", { fill: hl });
+  });
+  if (pending) rect(pending, "#4f8cff", { fill: true });
+}
+function setPending(r) {
+  pending = r && r.x2 - r.x1 > 1 && r.y2 - r.y1 > 1 ? r : null;
+  ["x1", "y1", "x2", "y2"].forEach((k) => { $(k).value = pending ? pending[k] : ""; });
+  $("save").disabled = !pending;
+  draw();
+}
+
+ov.addEventListener("pointerdown", (e) => { ov.setPointerCapture(e.pointerId); drag = toImg(e); setPending(norm(drag, drag)); });
+ov.addEventListener("pointermove", (e) => { if (drag) setPending(norm(drag, toImg(e))); });
+ov.addEventListener("pointerup", (e) => { if (drag) { setPending(norm(drag, toImg(e))); drag = null; } });
+["x1", "y1", "x2", "y2"].forEach((k) => $(k).oninput = () => {
+  const v = Object.fromEntries(["x1", "y1", "x2", "y2"].map((k) => [k, Number($(k).value)]));
+  pending = norm([v.x1, v.y1], [v.x2, v.y2]); $("save").disabled = false; draw();
+});
+$("clear").onclick = () => setPending(null);
+
+$("save").onclick = async () => {
+  $("err").textContent = "";
+  try {
+    await api(`/review/${id}/pois`, { json: { ...pending, comment: $("comment").value } });
+    $("comment").value = ""; setPending(null); await load();
+  } catch (e) { $("err").textContent = e.message; }
+};
+
+function renderPois() {
+  $("pois").innerHTML = pois.map((p, i) => `
+    <div class="ev" data-id="${p.id}">
+      <div class="row" style="justify-content:space-between">
+        <b>#${i + 1}</b>
+        <button class="danger small" data-del="${p.id}">Delete</button>
+      </div>
+      <div class="small">drawn <code>${p.drawn.x1},${p.drawn.y1} – ${p.drawn.x2},${p.drawn.y2}</code></div>
+      <div class="small">optimized ${p.optimized
+        ? `<code>${p.optimized.x1},${p.optimized.y1} – ${p.optimized.x2},${p.optimized.y2}</code> (canvas, ${(p.optimized.x2 - p.optimized.x1) / 8}×${(p.optimized.y2 - p.optimized.y1) / 8} tiles)`
+        : `<span class="muted">outside the console picture</span>`}</div>
+      <div>${esc(p.comment) || '<span class="muted">no comment</span>'}</div>
+    </div>`).join("") || `<div class="muted">No POIs yet.</div>`;
+  $("pois").querySelectorAll("[data-id]").forEach((el) => {
+    el.onmouseenter = () => { hover = Number(el.dataset.id); draw(); };
+    el.onmouseleave = () => { hover = null; draw(); };
+  });
+  $("pois").querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    await api(`/review/${id}/pois/${b.dataset.del}`, { method: "DELETE" }); load();
+  });
+}
+
+async function load() {
+  let r;
+  try { r = await api(`/review/${id}`); } catch (e) { $("title").textContent = e.message; return; }
+  const i = r.item;
+  $("title").innerHTML = `Unknown screen #${i.id} <span class="badge ${i.status}">${i.status}</span>`;
+  $("meta").innerHTML = `<table>
+    <tr><th>State</th><td>${esc(i.state)}</td></tr>
+    <tr><th>First frame</th><td>${i.frame_no}</td></tr>
+    <tr><th>Seen</th><td>${i.count}× · ${when(i.first_seen)} – ${when(i.last_seen)}</td></tr></table>`;
+  if (document.activeElement !== $("note")) $("note").value = i.note;
+  pois = r.pois; renderPois(); draw();
+}
+
+async function setStatus(status) { await api(`/review/${id}`, { method: "PATCH", json: { status } }); load(); }
+$("reviewed").onclick = () => setStatus("reviewed");
+$("ignored").onclick = () => setStatus("ignored");
+$("reopen").onclick = () => setStatus("new");
+$("savenote").onclick = async () => {
+  await api(`/review/${id}`, { method: "PATCH", json: { note: $("note").value } });
+  $("notemsg").textContent = "saved"; setTimeout(() => $("notemsg").textContent = "", 1500);
+};
+$("del").onclick = async () => {
+  if (!confirm("Delete this screen and its POIs?")) return;
+  await api(`/review/${id}`, { method: "DELETE" }); location.href = "/review";
+};
+$("next").onclick = async () => {
+  const { items } = await api("/review");
+  const next = items.filter((x) => x.status === "new" && x.id !== id).sort((a, b) => a.id - b.id);
+  const after = next.find((x) => x.id > id) || next[0];
+  if (after) location.href = `/review/${after.id}`; else alert("No other new screens.");
+};
+load();
+</script>
+</body></html>

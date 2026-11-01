@@ -25,6 +25,8 @@
       });
 
       nixosModules = {
+        # Just the service, for any NixOS machine.
+        default = ./nix/module.nix;
         # Everything that turns a Raspberry Pi 4 into an eightbit-bro box.
         appliance-rpi4 = ./nix/appliance-rpi4.nix;
       };

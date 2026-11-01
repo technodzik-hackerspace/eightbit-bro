@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eightbit-bro · Review</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+<main>
+  <div class="row" style="justify-content:space-between">
+    <h1>Unknown screens</h1>
+    <div class="row">
+      <span class="muted small" id="stats"></span>
+      <select id="status" style="width:auto">
+        <option value="">All</option><option value="new" selected>New</option>
+        <option value="reviewed">Reviewed</option><option value="ignored">Ignored</option>
+      </select>
+    </div>
+  </div>
+  <p class="muted small">Frames no recognizer claimed, deduplicated by similarity. Open one to mark the region
+    that tells it apart (POI) and explain it for the agent. The queue keeps at most <span id="max">100</span> screens;
+    reviewed or ignored ones make room for new ones.</p>
+  <div class="grid" id="items"></div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+nav("/review");
+const sel = document.getElementById("status");
+let items = [];
+
+function render() {
+  const shown = items.filter((i) => !sel.value || i.status === sel.value);
+  document.getElementById("items").innerHTML = shown.map((i) => `
+    <a class="card" href="/review/${i.id}">
+      <img loading="lazy" src="/api/review/${i.id}/frame.jpg" alt="">
+      <div class="body">
+        <div class="row" style="justify-content:space-between"><b>#${i.id}</b><span class="badge ${i.status}">${i.status}</span></div>
+        <div class="small">${esc(i.state)} · seen ${i.count}×${i.pois ? ` · ${i.pois} POI` : ""}</div>
+        <div class="muted small">${when(i.first_seen)} – ${when(i.last_seen)}</div>
+        ${i.note ? `<div class="small">${esc(i.note)}</div>` : ""}
+      </div>
+    </a>`).join("") || `<div class="muted">Nothing here.</div>`;
+}
+
+async function load() {
+  const r = await api("/review");
+  items = r.items;
+  document.getElementById("max").textContent = r.stats.max;
+  document.getElementById("stats").textContent = `${r.stats.items} / ${r.stats.max}` +
+    (r.stats.skipped ? ` · ${r.stats.skipped} skipped (full)` : "");
+  render();
+}
+sel.onchange = render;
+stream({ review: load });
+load();
+</script>
+</body></html>

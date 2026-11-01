@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>eightbit-bro · Live</title><link rel="stylesheet" href="/static/app.css"></head>
+<body>
+<main>
+  <div class="cols">
+    <div>
+      <div class="panel">
+        <div class="muted small">Console state</div>
+        <div class="state" id="path">…</div>
+        <div class="muted small">for <span id="since"></span> · source <code id="source"></code></div>
+      </div>
+      <h2>Preview <label class="small" style="display:inline;margin-left:8px"><input type="checkbox" id="pv" checked style="width:auto"> live (1 fps)</label></h2>
+      <img class="frame" id="preview" alt="no frame yet">
+    </div>
+    <div>
+      <h2 style="margin-top:0">Health</h2>
+      <div class="panel"><table id="health"></table></div>
+      <h2>Review queue</h2>
+      <div class="panel"><a href="/review" id="review"></a></div>
+      <h2>Recent events</h2>
+      <div class="panel" id="events"></div>
+    </div>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+<script>
+nav("/");
+let since = Date.now();
+const $ = (id) => document.getElementById(id);
+
+function setState(path, s) { $("path").textContent = path; since = s; }
+function addEvent(e, top) {
+  const div = document.createElement("div");
+  div.className = "ev";
+  div.innerHTML = `<span class="muted small">${when(e.ts)} · #${e.frame_no}</span><br>${describe(e.kind)}`;
+  top ? $("events").prepend(div) : $("events").append(div);
+  while ($("events").children.length > 15) $("events").lastChild.remove();
+}
+
+async function refresh() {
+  const s = await api("/state");
+  setState(s.path, s.since);
+  $("source").textContent = s.source;
+  const r = s.rates, c = s.counters;
+  const rows = [
+    ["Capture", `${r.capture_fps.toFixed(0)} fps`],
+    ["Perception", `${r.perceive_fps.toFixed(0)} fps · ${r.perceive_ms.toFixed(1)} ms/frame`],
+    ["Frames", `${c.captured} captured · ${c.processed} perceived · ${c.skipped} skipped`],
+    ["Corrupt / capture errors", `${c.corrupt} / ${c.capture_errors}`],
+    ["CPU temperature", r.temp_c != null ? `${r.temp_c.toFixed(1)} °C` : "–"],
+    ["Load", r.load ?? "–"],
+    ["Memory (RSS)", r.rss_mb != null ? `${r.rss_mb.toFixed(0)} MB` : "–"],
+    ["Version", s.version],
+  ];
+  $("health").innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("");
+  $("review").textContent = `${s.review.items} / ${s.review.max} unknown screens` +
+    (s.review.skipped ? ` · ${s.review.skipped} skipped (queue full)` : "");
+}
+
+async function loadEvents() {
+  const { events } = await api("/events?limit=15");
+  $("events").innerHTML = "";
+  events.forEach((e) => addEvent(e, false));
+  if (!events.length) $("events").innerHTML = `<div class="muted">No events yet.</div>`;
+}
+
+function tickPreview() {
+  if ($("pv").checked && !document.hidden) $("preview").src = `/api/preview.jpg?t=${Date.now()}`;
+}
+
+stream({
+  state: (p) => setState(p.path, p.since),
+  event: (e) => { if ($("events").querySelector(".muted:only-child")) $("events").innerHTML = ""; addEvent(e, true); },
+  review: () => refresh(),
+});
+refresh(); loadEvents(); tickPreview();
+setInterval(refresh, 2000);
+setInterval(tickPreview, 1000);
+setInterval(() => { $("since").textContent = ago(since); }, 500);
+</script>
+</body></html>
