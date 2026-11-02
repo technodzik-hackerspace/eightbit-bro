@@ -1,6 +1,6 @@
 [package]
 name = "bro-vision"
-description = "Frames to NES canvas: geometry, palette, probes, POI optimization."
+description = "Frames to NES canvas: geometry, probes, POI optimization."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
