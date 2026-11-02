@@ -2,6 +2,11 @@
 
 > He watches and knows all your 8-bit games.
 
+<p align="center">
+  <img src="docs/images/promo.jpg" width="600"
+       alt="eightbit-bro, a retro monitor-headed character in a hoodie, next to the setup: console, HDMI splitter, capture card, Raspberry Pi 4, with menu tracking, Tetris analytics, Battle City and Dr. Mario recognized">
+</p>
+
 eightbit-bro watches the HDMI output of a **Retro-Genesis 8-bit console** (NES-compatible,
 "300 IN 1 VER2.0") at a hackerspace and knows, frame by frame, what the console is doing: no
 signal, the game menu (which page, which game is highlighted), or a game. For Tetris it knows
@@ -19,10 +24,11 @@ next (see [Status](#status)).
 ## How it works
 
 ```
- console ─HDMI─► MS2109 capture card ─USB─► Raspberry Pi 4
-                                              │
-   ffmpeg (MJPEG 1280×720 @ 30, copied as-is) │
-                                              ▼
+ console ─HDMI─► splitter ─┬─► TV
+                           └─► MS2109 capture card ─USB─► Raspberry Pi 4
+                                                            │
+                 ffmpeg (MJPEG 1280×720 @ 30, copied as-is) │
+                                                            ▼
    capture ──► ring buffer (~4 s of JPEGs) ──► perception ──► reducer ──► events
                      │                        (pure)        (pure)       │
                      └──► dashboard preview                              ├─► SQLite
@@ -64,6 +70,14 @@ added as a test fixture (see [Adding recognition](#adding-recognition)).
 
 ## Hardware
 
+<p align="center">
+  <img src="docs/images/setup.jpg" width="600"
+       alt="Setup: the 8-bit console's HDMI goes to a 4-port HDMI splitter; output 1 to the TV, output 2 to the MS2109 HDMI capture card, which is plugged into the Raspberry Pi 4 over USB">
+</p>
+
+- The console's HDMI goes into an HDMI splitter: one output to the TV the players watch, one
+  to the capture card. eightbit-bro only watches; it never sits between the console and the
+  TV.
 - Raspberry Pi 4 (the current one has 1.8 GB RAM) with an SD card.
 - MacroSilicon **MS2109** USB HDMI capture card (`534d:2109`), used in MJPEG 1280×720 at
   30 fps (it also does 60 and 50). It is opened by its stable id,
