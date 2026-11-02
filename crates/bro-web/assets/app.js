@@ -52,7 +52,22 @@ function ago(ms) {
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 
+function players(ps, layout) {
+  const n = layout === "Single" ? 1 : 2;
+  return ps.slice(0, n).map((p, i) =>
+    `P${i + 1} <b>${p.score ?? "?"}</b> (${p.lines ?? "?"} lines${p.level != null ? `, L${p.level}` : ""})`).join(" · ");
+}
+
 function describe(kind) {
+  if (kind.GameFinished) {
+    const r = kind.GameFinished.result;
+    const layout = { Single: "1P", Double: "2P", Coop: "coop" }[r.layout] ?? "";
+    const level = r.start_level.filter((l) => l != null).join("–");
+    const reason = { GameOver: "game over", NewGame: "abandoned", Left: "left the game" }[r.reason] ?? r.reason;
+    const over = r.topped_out.map((t, i) => (t ? `P${i + 1} topped out` : null)).filter(Boolean).join(", ");
+    return `🏁 <b>${esc(kind.GameFinished.game)} ${layout}</b> finished: ${reason} · ${r.session.toLowerCase()}` +
+      `${level ? ` · start L${level}` : ""}<br>${players(r.players, r.layout)}${over ? ` · ${over}` : ""}`;
+  }
   if (kind.Changed) return `${esc(kind.Changed.from)} → <b>${esc(kind.Changed.to)}</b>`;
   if (kind.UnknownScreen) return `unknown screen in ${esc(kind.UnknownScreen.state)} → <a href="/review/${kind.UnknownScreen.item}">review #${kind.UnknownScreen.item}</a>`;
   return esc(JSON.stringify(kind));

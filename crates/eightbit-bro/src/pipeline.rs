@@ -87,8 +87,19 @@ impl Pipeline {
     pub fn observe(&mut self, obs: Observation) {
         let (next, events) = reduce(&self.state, &obs);
         for event in events {
-            if let EventKind::Changed { from, to } = &event.kind {
-                info!(frame = event.frame_no, %from, %to, "state");
+            match &event.kind {
+                EventKind::Changed { from, to } => {
+                    info!(frame = event.frame_no, %from, %to, "state")
+                }
+                EventKind::GameFinished { game, result } => info!(
+                    frame = event.frame_no,
+                    %game,
+                    reason = ?result.reason,
+                    session = ?result.session,
+                    players = ?result.players,
+                    "game finished"
+                ),
+                EventKind::UnknownScreen { .. } => {}
             }
             self.record(event.frame_no, &event.kind);
         }

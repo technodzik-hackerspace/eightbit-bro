@@ -8,6 +8,7 @@
       <div class="panel">
         <div class="muted small">Console state</div>
         <div class="state" id="path">…</div>
+        <div id="players" class="small" hidden></div>
         <div class="muted small">for <span id="since"></span> · source <code id="source"></code></div>
       </div>
       <div class="row" style="justify-content:space-between">
@@ -49,6 +50,9 @@ async function refresh() {
   const s = await api("/state");
   setState(s.path, s.since);
   $("source").textContent = s.source;
+  const t = s.state?.InGame?.detail?.Tetris;
+  $("players").hidden = !(t && t.screen === "Playing");
+  if (t && t.screen === "Playing") $("players").innerHTML = players(t.players, t.layout);
   const r = s.rates, c = s.counters;
   const rows = [
     ["Capture", `${r.capture_fps.toFixed(0)} fps`],

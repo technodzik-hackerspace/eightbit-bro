@@ -5,6 +5,9 @@
 [[frame]]
 file = "1.jpg"
 seen = "tetris"
+scores = [105738, -1]
+lines = [195, -1]
+levels = [14, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -14,6 +17,9 @@ bonus = [false, false]
 [[frame]]
 file = "2.jpg"
 seen = "tetris"
+scores = [107253, -1]
+lines = [195, -1]
+levels = [14, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -23,6 +29,9 @@ bonus = [false, false]
 [[frame]]
 file = "3.jpg"
 seen = "tetris"
+scores = [129339, -1]
+lines = [217, -1]
+levels = [15, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -32,6 +41,9 @@ bonus = [false, false]
 [[frame]]
 file = "4.jpg"
 seen = "tetris"
+scores = [153851, -1]
+lines = [236, -1]
+levels = [15, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -41,6 +53,9 @@ bonus = [false, false]
 [[frame]]
 file = "5.jpg"
 seen = "tetris"
+scores = [0, -1]
+lines = [0, -1]
+levels = [9, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -50,6 +65,9 @@ bonus = [false, false]
 [[frame]]
 file = "6.jpg"
 seen = "tetris"
+scores = [4910, -1]
+lines = [9, -1]
+levels = [9, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -59,6 +77,9 @@ bonus = [false, false]
 [[frame]]
 file = "7.jpg"
 seen = "tetris"
+scores = [12245, -1]
+lines = [33, -1]
+levels = [10, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -68,6 +89,9 @@ bonus = [false, false]
 [[frame]]
 file = "8.jpg"
 seen = "tetris"
+scores = [15864, -1]
+lines = [38, -1]
+levels = [10, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -77,6 +101,9 @@ bonus = [false, false]
 [[frame]]
 file = "9.jpg"
 seen = "tetris"
+scores = [19901, -1]
+lines = [45, -1]
+levels = [10, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -86,6 +113,9 @@ bonus = [false, false]
 [[frame]]
 file = "10.jpg"
 seen = "tetris"
+scores = [21155, -1]
+lines = [51, -1]
+levels = [10, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -95,6 +125,9 @@ bonus = [false, false]
 [[frame]]
 file = "11.jpg"
 seen = "tetris"
+scores = [26531, -1]
+lines = [60, -1]
+levels = [11, -1]
 screen = "Playing"
 layout = "Single"
 paused = false
@@ -104,6 +137,9 @@ bonus = [false, false]
 [[frame]]
 file = "12.jpg"
 seen = "tetris"
+scores = [51576, -1]
+lines = [95, -1]
+levels = [12, -1]
 screen = "Playing"
 layout = "Single"
 paused = false

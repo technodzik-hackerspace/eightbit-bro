@@ -3,6 +3,7 @@
 //! module registered in `Perception::new` (PRD §6.3).
 
 mod font;
+mod hud;
 mod menu;
 mod screens;
 mod tetris;
@@ -74,6 +75,9 @@ pub struct Perception {
     /// The last menu read and the list area it was read from: the menu is mostly still, so
     /// the full-resolution decode only runs when the list changes.
     last_menu: Option<(u64, MenuRead, MenuState)>,
+    /// The last HUD numbers and the HUD area they were read from: like the menu, the
+    /// full-resolution decode runs only when the HUD changes.
+    last_hud: Option<(u64, [bro_heart::tetris::PlayerStats; 2])>,
 }
 
 impl Perception {
@@ -133,7 +137,7 @@ impl Perception {
     }
 
     pub fn with_games(geometry: Geometry, menu: Menu, games: Vec<Box<dyn GameRecognizer>>) -> Self {
-        Perception { geometry, menu, games, last_menu: None }
+        Perception { geometry, menu, games, last_menu: None, last_hud: None }
     }
 
     /// `hint` (usually the current game) is tried first. It changes speed, never the result.
@@ -165,9 +169,14 @@ impl Perception {
         let (seen, menu) = match self.classify(&canvas, hint) {
             Claim::Black => (Seen::Black, None),
             Claim::Game(game) => {
-                let obs = self
+                let mut obs = self
                     .claimant(&canvas, Some(game))
                     .map_or(GameObs::None, |g| g.observe(&canvas));
+                if let GameObs::Tetris(t) = &mut obs
+                    && t.screen == bro_heart::tetris::TetrisScreen::Playing
+                {
+                    t.players = self.hud(decoder, frame, &canvas, t.layout)?;
+                }
                 (Seen::Game(game, obs), None)
             }
             Claim::Unrecognized => (Seen::Unrecognized, None),
@@ -189,6 +198,38 @@ impl Perception {
         };
         Ok(Sight { seen, canvas, menu })
     }
+}
+
+impl Perception {
+    fn hud(
+        &mut self,
+        decoder: &mut Decoder,
+        frame: &RawFrame,
+        half: &NesCanvas,
+        layout: Option<bro_heart::tetris::Layout>,
+    ) -> Result<[bro_heart::tetris::PlayerStats; 2]> {
+        let key = area_key(half, 50, 16, 206, 57) ^ layout.map_or(0, |l| l as u64 + 1);
+        if let Some((k, players)) = self.last_hud
+            && k == key
+        {
+            return Ok(players);
+        }
+        let full = NesCanvas::sample(&decoder.decode_full(frame)?, &self.geometry);
+        let players = hud::read(&full, layout);
+        self.last_hud = Some((key, players));
+        Ok(players)
+    }
+}
+
+/// Fingerprint of the bright pixels in an area of the half-scale canvas.
+fn area_key(c: &NesCanvas, x1: u32, y1: u32, x2: u32, y2: u32) -> u64 {
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for y in y1..y2 {
+        for x in x1..x2 {
+            hash = (hash ^ (c.luma_at(x, y) > 140) as u64).wrapping_mul(0x100_0000_01b3);
+        }
+    }
+    hash
 }
 
 fn half_canvas(decoder: &mut Decoder, geometry: &Geometry, frame: &RawFrame) -> Result<NesCanvas> {
@@ -244,6 +285,10 @@ mod tests {
         level: Option<[i16; 2]>,
         handicap: Option<[i16; 2]>,
         music: Option<TetrisMusic>,
+        /// HUD numbers per player, -1 for none.
+        scores: Option<[i64; 2]>,
+        lines: Option<[i64; 2]>,
+        levels: Option<[i64; 2]>,
         // Screen-table games: the screen name ("?" for recognized but unknown) and flags.
         game_screen: Option<String>,
         flags: Option<Vec<String>>,
@@ -323,6 +368,13 @@ mod tests {
                 check(&mut failures, file, "paused", t.paused, want.paused);
                 check(&mut failures, file, "bonus", t.bonus, want.bonus);
                 check(&mut failures, file, "game over", t.game_over, want.game_over);
+                let per = |v: [i64; 2]| v.map(|x| u32::try_from(x).ok());
+                let got = |f: fn(&bro_heart::tetris::PlayerStats) -> Option<u32>| {
+                    t.players.each_ref().map(f)
+                };
+                check(&mut failures, file, "scores", got(|p| p.score), want.scores.map(per));
+                check(&mut failures, file, "lines", got(|p| p.lines), want.lines.map(per));
+                check(&mut failures, file, "levels", got(|p| p.level), want.levels.map(per));
             }
         }
         assert!(failures.is_empty(), "{}", failures.join("\n"));

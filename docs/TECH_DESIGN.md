@@ -267,7 +267,7 @@ review queue. Adding a game or a screen is a few rows, from the owner's POIs.
 
 ### 3.7 Tetris module
 
-Status: screens and flags done; scores/lines/level OCR and the title screen not yet.
+Status: screens, flags, HUD numbers and game results done.
 
 - **Identity:** the SCORE / LINES / LEVEL labels (owner's POI), identical in gameplay, game
   select and level select, in both layouts.
@@ -289,12 +289,22 @@ Status: screens and flags done; scores/lines/level OCR and the title screen not 
   select screens; the session is **clean** after the select screens, **dirty** on a cold
   start, **demo** when play starts without them (PRD T3, T4). Game over is sticky per player
   (T7). Unknown screens keep the state.
-- **OCR (next):** the HUD uses its own font (its "1" has a base serif), so its digit tiles are
-  learned from fixtures with known values (v1's `{P1}_{P2}` files and Pi frames), like the
-  menu font. Digits that don't match are `None`, never guessed.
+- **HUD numbers** (`bro-games/src/hud.rs`): score, lines and level per player, read on the
+  full-resolution canvas (at ½ scale some digits blur together) only when the HUD area of the
+  ½-scale canvas changes. The HUD has its own font (its "1" has a base serif): 10 digit
+  glyphs, learned from the Pi frames (466 cells, all exact). Cells are 8 px at x ≡ 7 (mod 8):
+  P1's numbers end at x = 95, P2's start at x = 151; rows y = 16 / 32 / 48. P2 is read only
+  in 2P and coop (in 1P those cells hold HIGH SCORE / STATS); coop has no level row. A cell
+  that isn't within one pixel of exactly one digit makes the number `None`, never guessed.
+- **Results** (PRD T7, T8, E3): numbers freeze when a player tops out; the game ends when the
+  well tops out (1P, coop) or both do (2P), or when the console goes back to the select
+  screens / splash, the menu, another game or no signal. Each game is reported once as a
+  `GameFinished` event: reason, session (clean / dirty / demo), layout, mode, start levels,
+  handicaps, each player's score / lines / level and top-out.
 - **v1 fixtures** (`fixtures/frames/v1-1080p`, JPEG) carry v1's assertions in
-  `expected.toml`: Tetris or not, 2P, pause, bonus, game over per player. Not yet ported:
-  scores/lines/levels and the 1,500-frame captured sequence.
+  `expected.toml`: Tetris or not, 2P, pause, bonus, game over per player. Not ported: the
+  scores (v1's 1080p capture renders the digits differently, with drifting spacing; the live
+  720p frames carry the score tests instead) and the 1,500-frame captured sequence.
 
 ## 4. Recorder
 

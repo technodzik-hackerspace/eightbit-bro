@@ -82,6 +82,50 @@ pub enum Layout {
     Coop,
 }
 
+/// A player's numbers on the HUD; `None` where not shown or not read.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlayerStats {
+    pub score: Option<u32>,
+    pub lines: Option<u32>,
+    pub level: Option<u32>,
+}
+
+impl PlayerStats {
+    /// This frame's values, the previous ones where this frame has none.
+    fn or(self, previous: PlayerStats) -> PlayerStats {
+        PlayerStats {
+            score: self.score.or(previous.score),
+            lines: self.lines.or(previous.lines),
+            level: self.level.or(previous.level),
+        }
+    }
+}
+
+/// Why a game ended (PRD T8).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EndReason {
+    /// The well topped out: the player's in 1P and coop, both players' in 2P.
+    GameOver,
+    /// Back to the splash or the select screens without a game over.
+    NewGame,
+    /// The console left Tetris: reset to the menu, another game, or no signal.
+    Left,
+}
+
+/// One finished game: the event the recorder, Telegram and high scores build on (PRD E3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GameResult {
+    pub reason: EndReason,
+    pub session: Session,
+    pub layout: Option<Layout>,
+    pub mode: Option<TetrisMode>,
+    pub start_level: [Option<u8>; 2],
+    pub handicap: [Option<u8>; 2],
+    /// Final numbers, frozen when each player topped out (PRD T7).
+    pub players: [PlayerStats; 2],
+    pub topped_out: [bool; 2],
+}
+
 /// One Tetris frame, without history.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TetrisObs {
@@ -100,6 +144,8 @@ pub struct TetrisObs {
     pub bonus: [bool; 2],
     /// GAME OVER shown in the left / right well.
     pub game_over: [bool; 2],
+    /// The HUD numbers on a playing screen: player 1 (left of the labels), player 2 (right).
+    pub players: [PlayerStats; 2],
 }
 
 impl TetrisObs {
@@ -114,6 +160,7 @@ impl TetrisObs {
             paused: false,
             bonus: [false; 2],
             game_over: [false; 2],
+            players: [PlayerStats::default(); 2],
         }
     }
 }
@@ -146,6 +193,10 @@ pub struct TetrisState {
     pub bonus: [bool; 2],
     /// Sticky for the session (PRD T7).
     pub topped_out: [bool; 2],
+    /// The last numbers read, frozen for a player once they top out.
+    pub players: [PlayerStats; 2],
+    /// The game's result has been reported.
+    pub finished: bool,
 }
 
 impl TetrisState {
@@ -161,6 +212,32 @@ impl TetrisState {
             paused: false,
             bonus: [false; 2],
             topped_out: [false; 2],
+            players: [PlayerStats::default(); 2],
+            finished: false,
+        }
+    }
+
+    /// The result, if a game is on and hasn't been reported yet.
+    pub fn result(&self, reason: EndReason) -> Option<GameResult> {
+        let playing = !self.finished && self.screen == Some(TetrisScreen::Playing);
+        let session = self.session.filter(|_| playing)?;
+        Some(GameResult {
+            reason,
+            session,
+            layout: self.layout,
+            mode: self.mode,
+            start_level: self.start_level,
+            handicap: self.handicap,
+            players: self.players,
+            topped_out: self.topped_out,
+        })
+    }
+
+    /// The well(s) topped out: the end of the game (PRD T8).
+    fn over(&self) -> bool {
+        match self.layout {
+            Some(Layout::Double) => self.topped_out[0] && self.topped_out[1],
+            _ => self.topped_out[0],
         }
     }
 
@@ -221,10 +298,19 @@ fn per_player(prefix: &str, values: [Option<u8>; 2]) -> Option<String> {
     }
 }
 
-/// The next Tetris state. `prev` is `None` when the console just entered Tetris; `cold` when
-/// it came from no signal (the service joined mid-game).
-pub fn reduce(prev: Option<&TetrisState>, obs: &TetrisObs, cold: bool) -> TetrisState {
+/// The next Tetris state, and the result of a game that just ended. `prev` is `None` when the
+/// console just entered Tetris; `cold` when it came from no signal (joined mid-game).
+pub fn reduce(
+    prev: Option<&TetrisState>,
+    obs: &TetrisObs,
+    cold: bool,
+) -> (TetrisState, Option<GameResult>) {
     let mut s = prev.cloned().unwrap_or_else(TetrisState::new);
+    // Leaving a game for the splash or the select screens ends it.
+    let mut result = match obs.screen {
+        TetrisScreen::Playing | TetrisScreen::Unknown => None,
+        _ => s.result(EndReason::NewGame),
+    };
     match obs.screen {
         TetrisScreen::Unknown => {}
         TetrisScreen::Title => {
@@ -268,16 +354,28 @@ pub fn reduce(prev: Option<&TetrisState>, obs: &TetrisObs, cold: bool) -> Tetris
             if let Some(session) = starting {
                 s.session = Some(session);
                 s.topped_out = [false; 2];
+                s.players = [PlayerStats::default(); 2];
+                s.finished = false;
             }
             s.screen = Some(TetrisScreen::Playing);
             s.layout = obs.layout.or(s.layout);
             s.paused = obs.paused;
             s.bonus = obs.bonus;
+            // Numbers from this frame, then frozen once the player has topped out (T7).
+            for i in 0..2 {
+                if !s.topped_out[i] {
+                    s.players[i] = obs.players[i].or(s.players[i]);
+                }
+            }
             s.topped_out =
                 [s.topped_out[0] || obs.game_over[0], s.topped_out[1] || obs.game_over[1]];
+            if s.over() {
+                result = s.result(EndReason::GameOver);
+                s.finished = true;
+            }
         }
     }
-    s
+    (s, result)
 }
 
 #[cfg(test)]
@@ -291,7 +389,7 @@ mod tests {
     fn run(start: Option<TetrisState>, cold: bool, frames: &[TetrisObs]) -> TetrisState {
         let mut state = start;
         for (i, obs) in frames.iter().enumerate() {
-            state = Some(reduce(state.as_ref(), obs, cold && i == 0));
+            state = Some(reduce(state.as_ref(), obs, cold && i == 0).0);
         }
         state.unwrap()
     }
@@ -363,7 +461,7 @@ mod tests {
     #[test]
     fn unknown_screen_keeps_the_state() {
         let s = run(None, false, &[playing()]);
-        assert_eq!(reduce(Some(&s), &TetrisObs::screen(TetrisScreen::Unknown), false), s);
+        assert_eq!(reduce(Some(&s), &TetrisObs::screen(TetrisScreen::Unknown), false), (s, None));
     }
 
     #[test]
@@ -380,5 +478,61 @@ mod tests {
         );
         assert_eq!(s.session, Some(Session::Clean));
         assert_eq!(s.topped_out, [false, false]);
+    }
+
+    fn scores(p1: u32, p2: u32) -> [PlayerStats; 2] {
+        [p1, p2].map(|score| PlayerStats {
+            score: Some(score),
+            lines: Some(score / 100),
+            level: Some(3),
+        })
+    }
+
+    #[test]
+    fn two_player_game_ends_when_both_top_out_with_frozen_scores() {
+        let mut state = None;
+        let mut results = Vec::new();
+        let frames = [
+            TetrisObs::screen(TetrisScreen::MusicSelect),
+            TetrisObs { players: scores(100, 200), ..playing() },
+            // P1 tops out at 500; the number stays even if the HUD showed more.
+            TetrisObs { players: scores(500, 900), game_over: [true, false], ..playing() },
+            TetrisObs { players: scores(700, 1500), game_over: [true, false], ..playing() },
+            TetrisObs { players: scores(700, 2000), game_over: [true, true], ..playing() },
+            TetrisObs { players: scores(700, 2000), game_over: [true, true], ..playing() },
+        ];
+        for obs in &frames {
+            let (s, result) = reduce(state.as_ref(), obs, false);
+            results.extend(result);
+            state = Some(s);
+        }
+        assert_eq!(results.len(), 1, "reported once");
+        let r = &results[0];
+        assert_eq!((r.reason, r.session), (EndReason::GameOver, Session::Clean));
+        assert_eq!(r.players[0].score, Some(500));
+        assert_eq!(r.players[1].score, Some(2000));
+        assert_eq!(r.topped_out, [true, true]);
+    }
+
+    #[test]
+    fn one_player_game_ends_at_its_top_out() {
+        let single = |players, game_over| TetrisObs {
+            layout: Some(Layout::Single),
+            players,
+            game_over,
+            ..playing()
+        };
+        let (s, _) = reduce(None, &single(scores(9588, 0), [false; 2]), true);
+        let (_, result) = reduce(Some(&s), &single(scores(10253, 0), [true, false]), false);
+        let r = result.unwrap();
+        assert_eq!((r.reason, r.session), (EndReason::GameOver, Session::Dirty));
+        assert_eq!(r.players[0].score, Some(10253));
+    }
+
+    #[test]
+    fn going_back_to_select_screens_ends_an_unfinished_game() {
+        let (s, _) = reduce(None, &TetrisObs { players: scores(42, 7), ..playing() }, true);
+        let (_, result) = reduce(Some(&s), &TetrisObs::screen(TetrisScreen::ModeSelect), false);
+        assert_eq!(result.unwrap().reason, EndReason::NewGame);
     }
 }
