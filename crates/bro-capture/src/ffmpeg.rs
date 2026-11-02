@@ -25,10 +25,12 @@ enum Clock {
 }
 
 impl FfmpegSource {
-    /// The MS2109 in its chosen mode: MJPEG 1280×720 @ 60 (tech design §2).
-    pub fn device(path: &Path) -> Result<FfmpegSource> {
-        let args = ["-f", "v4l2", "-input_format", "mjpeg", "-video_size", "1280x720"];
-        let args = args.into_iter().chain(["-framerate", "60", "-i"]).map(Into::into);
+    /// The MS2109 in its chosen mode: MJPEG 1280×720 at `fps` (60, 50 or 30; tech design §2).
+    pub fn device(path: &Path, fps: u32) -> Result<FfmpegSource> {
+        let fps = fps.to_string();
+        let args =
+            ["-f", "v4l2", "-input_format", "mjpeg", "-video_size", "1280x720", "-framerate"];
+        let args = args.into_iter().chain([fps.as_str(), "-i"]).map(Into::into);
         let args: Vec<_> = args.chain([path.as_os_str().to_owned()]).collect();
         Self::spawn(&args, &["-c:v", "copy"], Clock::Live(Instant::now()))
     }

@@ -32,6 +32,9 @@ pub struct References<'a> {
     pub music_select: &'a NesCanvas,
     /// Pi 2026-11-02 item 36: two-player game (owner's POI: the right NEXT).
     pub double: &'a NesCanvas,
+    /// Pi 2026-11-02 item 133: paused; item 134: BONUS on both sides (owner's captures).
+    pub pause: &'a NesCanvas,
+    pub bonus: &'a NesCanvas,
     /// Pi 2026-11-02 items 44 and 40: GAME OVER left and right (owner's POIs).
     pub over_left: &'a NesCanvas,
     pub over_right: &'a NesCanvas,
@@ -39,7 +42,7 @@ pub struct References<'a> {
     pub v1_double: &'a NesCanvas,
     pub v1_over_left: &'a NesCanvas,
     pub v1_over_right: &'a NesCanvas,
-    /// v1 `game_pause`, `game_bonus`, `bonus3`: not seen on the Pi yet.
+    /// v1 `game_pause`, `game_bonus`, `bonus3`: the same at 1080p.
     pub v1_pause: &'a NesCanvas,
     pub v1_bonus_left: &'a NesCanvas,
     pub v1_bonus_right: &'a NesCanvas,
@@ -91,7 +94,11 @@ impl Tetris {
                 lit(r.double, Rect::new(210, 16, 241, 24)),
                 lit(r.v1_double, Rect::new(203, 15, 236, 23)),
             ]),
-            pause: one(r.v1_pause, Rect::new(97, 63, 158, 79)),
+            // The live capture draws these ~6 px left of v1's: both references count.
+            pause: Element(vec![
+                lit(r.pause, Rect::new(97, 63, 158, 80)),
+                lit(r.v1_pause, Rect::new(97, 63, 158, 79)),
+            ]),
             over: [
                 Element(vec![
                     lit(r.over_left, Rect::new(31, 96, 80, 128)),
@@ -103,8 +110,14 @@ impl Tetris {
                 ]),
             ],
             bonus: [
-                one(r.v1_bonus_left, Rect::new(24, 62, 93, 78)),
-                one(r.v1_bonus_right, Rect::new(160, 62, 229, 78)),
+                Element(vec![
+                    lit(r.bonus, Rect::new(17, 63, 91, 79)),
+                    lit(r.v1_bonus_left, Rect::new(24, 62, 93, 78)),
+                ]),
+                Element(vec![
+                    lit(r.bonus, Rect::new(159, 63, 233, 79)),
+                    lit(r.v1_bonus_right, Rect::new(160, 62, 229, 78)),
+                ]),
             ],
         };
         // A probe of plain background would match any plain background.

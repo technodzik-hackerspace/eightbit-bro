@@ -104,6 +104,22 @@ layout = "Double"
 paused = false
 game_over = [true, false]
 
+# Pause and bonus on the live capture (owner's captures, items 133 and 134).
+[[frame]]
+file = "133.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = true
+
+[[frame]]
+file = "134.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+bonus = [true, true]
+
 # Battle City (owner's POIs: title, game, base destroyed, score screen).
 [[frame]]
 file = "45.jpg"

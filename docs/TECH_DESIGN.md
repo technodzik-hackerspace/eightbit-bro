@@ -281,8 +281,7 @@ Status: screens and flags done; scores/lines/level OCR and the title screen not 
 - **Layout:** STATS (POI) means one player or the demo; NEXT on the right means two wells.
 - **Flags:** PAUSE box; GAME OVER box per well; BONUS per well. An element can have several
   reference probes (live 720p and v1 1080p) and shows if any matches: the 2P layout's right
-  NEXT is 8 px further right on the live capture than on v1's. Pause and bonus still come
-  from v1 only (decoded with the v1 geometry).
+  NEXT is 8 px further right on the live capture than on v1's, BONUS ~6 px left.
 - **Probes** compare the *lit* mask (any channel > 100) on the black background, so red
   (NEXT, BONUS) and dim blue text (GAME SELECT) count; ≤ 10 % differing pixels within ±2 px.
   The labels allow 20 %: probes cut from the Pi differ by ~11 % on v1's captures.
@@ -523,7 +522,7 @@ password and Telegram details on the setup page. No secrets to prepare.
 
 | # | Question | Proposal |
 |---|---|---|
-| D1 | Output fps: 30 or 60? | **Decided: 30.** Capture and perception stay at 60 |
+| D1 | Output fps: 30 or 60? | **Decided: 30.** Capture too, since 2026-11-02 (`[input] fps = 30`, the card's 720p30 mode): it halves the work. The card also does 60 and 50 |
 | D2 | Output look (A/B/C, §4.3) | **Decided: A**, cropped pass-through 896×720; B and C were blurry |
 | D3 | aarch64 build strategy | **Done:** binfmt on fenek (`fl` 89d0f55, rebuilt) |
 | D4 | Pi NixOS 24.11 (EOL) → 26.05 | **Done (2026-11-01):** appliance layout (§10) deployed, rebooted into mainline 6.18.60; capture still 720p at 59.6 fps |

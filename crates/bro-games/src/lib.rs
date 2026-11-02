@@ -97,6 +97,8 @@ impl Perception {
             handicap_select: &reference(pi2!("33"), &pi)?,
             music_select: &reference(pi2!("34"), &pi)?,
             double: &reference(pi2!("36"), &pi)?,
+            pause: &reference(pi2!("133"), &pi)?,
+            bonus: &reference(pi2!("134"), &pi)?,
             over_left: &reference(pi2!("44"), &pi)?,
             over_right: &reference(pi2!("40"), &pi)?,
             v1_double: &reference(v1!("game_versus"), &V1_1080P)?,

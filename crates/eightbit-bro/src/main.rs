@@ -20,8 +20,8 @@ use tracing::{info, warn};
 use crate::config::{Config, InputKind};
 use crate::pipeline::Pipeline;
 
-/// ~4 s of 60 fps capture (tech design §3.2).
-const RING_FRAMES: usize = 240;
+/// The ring holds this much of the capture (tech design §3.2).
+const RING_SECONDS: usize = 4;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -38,13 +38,13 @@ fn main() -> Result<()> {
     let (config, config_text) = Config::load(&PathBuf::from(path))?;
     let review = ReviewConfig { max_items: config.review.max_items, ..Default::default() };
     let store = Arc::new(Store::open(&config.data_dir, review)?);
-    let ring = Arc::new(Ring::new(RING_FRAMES));
+    let ring = Arc::new(Ring::new(RING_SECONDS * config.input.fps as usize));
 
     let (live, worker) = match config.input.kind()? {
         InputKind::Device(device) => {
             let live = Arc::new(Live::new(Some(ring.clone()), device.display().to_string()));
             let pipeline = Pipeline::new(config.geometry, store.clone(), live.clone())?;
-            (live.clone(), spawn_live(device.to_owned(), ring, pipeline, live))
+            (live.clone(), spawn_live(device.to_owned(), config.input.fps, ring, pipeline, live))
         }
         InputKind::Dir(dir) => {
             let source = DirSource::open(dir, config.input.fps)?;
@@ -101,6 +101,7 @@ fn spawn_replay(
 /// the newest frame and skips what it can't keep up with.
 fn spawn_live(
     device: PathBuf,
+    fps: u32,
     ring: Arc<Ring>,
     mut pipeline: Pipeline,
     live: Arc<Live>,
@@ -110,7 +111,7 @@ fn spawn_live(
         let (ring, live) = (ring.clone(), live.clone());
         thread::Builder::new()
             .name("capture".into())
-            .spawn(move || capture(&device, &ring, &live, &wake))
+            .spawn(move || capture(&device, fps, &ring, &live, &wake))
             .expect("spawning the capture thread");
     }
     thread::spawn(move || {
@@ -149,11 +150,11 @@ fn spawn_live(
 
 /// Reads the device forever, re-opening it after errors (it re-enumerates, v1's bug B8).
 /// Frame numbers keep increasing across re-opens.
-fn capture(device: &Path, ring: &Ring, live: &Live, wake: &mpsc::SyncSender<()>) {
+fn capture(device: &Path, fps: u32, ring: &Ring, live: &Live, wake: &mpsc::SyncSender<()>) {
     let mut next_no = 0u64;
     let mut failures = 0u32;
     loop {
-        let result = FfmpegSource::device(device).and_then(|mut source| {
+        let result = FfmpegSource::device(device, fps).and_then(|mut source| {
             while let Some(mut frame) = source.next()? {
                 frame.no = next_no;
                 next_no += 1;

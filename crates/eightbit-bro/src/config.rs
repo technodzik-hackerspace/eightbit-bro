@@ -32,7 +32,8 @@ pub struct Input {
     pub dir: Option<PathBuf>,
     /// A video file.
     pub video: Option<PathBuf>,
-    /// Nominal frame rate of `dir` and `video` inputs.
+    /// Frame rate: the capture card's mode for `device` (60, 50 or 30), nominal for `dir` and
+    /// `video` inputs.
     #[serde(default = "default_fps")]
     pub fps: u32,
 }
