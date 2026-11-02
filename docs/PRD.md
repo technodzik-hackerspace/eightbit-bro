@@ -357,7 +357,7 @@ eightbit-bro without SSH.
 
 - **W1. Live.** The current console state tree (e.g. `InGame › Tetris › Playing › 2P versus,
   start level 9 › P1 12,283 / P2 2,680 (topped out)`), updated live. A **live preview** of the
-  latest captured frame at low rate (3 fps), optionally with the recognized
+  latest captured frame (10 fps, one request at a time), optionally with the recognized
   regions drawn over it. Recording indicator (on/off, duration, frames, drop %).
 - **W2. Events.** The event log, live-tailing and searchable, filtered by level of the state
   tree, event type, session and time range. Clicking an event shows the frame it came from

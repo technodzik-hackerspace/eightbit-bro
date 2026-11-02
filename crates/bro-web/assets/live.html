@@ -3,8 +3,6 @@
 <title>eightbit-bro · Live</title><link rel="stylesheet" href="/static/app.css"></head>
 <body>
 <main>
-  <div class="panel" id="restart" hidden style="margin-bottom:14px;border-color:var(--warn)"></div>
-  <div class="panel" id="deploy" hidden style="margin-bottom:14px"></div>
   <div class="cols">
     <div>
       <div class="panel">
@@ -13,12 +11,15 @@
         <div class="muted small">for <span id="since"></span> · source <code id="source"></code></div>
       </div>
       <div class="row" style="justify-content:space-between">
-        <h2>Preview <label class="small" style="display:inline;margin-left:8px"><input type="checkbox" id="pv" checked style="width:auto"> live (3 fps)</label></h2>
+        <h2>Preview <label class="small" style="display:inline;margin-left:8px"><input type="checkbox" id="pv" checked style="width:auto"> live (10 fps)</label></h2>
         <div class="row"><span class="err small" id="captureerr"></span><button id="capture">📸 Capture frame for review</button></div>
       </div>
       <img class="frame" id="preview" alt="no frame yet">
     </div>
     <div>
+      <!-- Deploy and restart notices live here, so the preview never moves. -->
+      <div class="panel" id="restart" hidden style="margin-bottom:14px;border-color:var(--warn)"></div>
+      <div class="panel" id="deploy" hidden style="margin-bottom:14px"></div>
       <h2 style="margin-top:0">Health</h2>
       <div class="panel"><table id="health"></table></div>
       <h2>Review queue</h2>
@@ -91,8 +92,13 @@ $("capture").onclick = async () => {
   }
 };
 
+// One request at a time: the next frame is asked for when the last one has arrived.
+let previewBusy = false;
+$("preview").onload = $("preview").onerror = () => { previewBusy = false; };
 function tickPreview() {
-  if ($("pv").checked && !document.hidden) $("preview").src = `/api/preview.jpg?t=${Date.now()}`;
+  if (previewBusy || !$("pv").checked || document.hidden) return;
+  previewBusy = true;
+  $("preview").src = `/api/preview.jpg?t=${Date.now()}`;
 }
 
 function duration(ms) {
@@ -132,7 +138,7 @@ stream({
 refresh(); loadEvents(); tickPreview(); loadDeploy();
 setInterval(() => loadDeploy().catch(() => {}), 2000);
 setInterval(refresh, 2000);
-setInterval(tickPreview, 333);
+setInterval(tickPreview, 100);
 setInterval(() => { $("since").textContent = ago(since); }, 500);
 </script>
 </body></html>
