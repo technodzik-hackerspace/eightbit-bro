@@ -52,7 +52,7 @@ fn dist(a: [u8; 3], b: [u8; 3]) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Probe, fixtures};
+    use crate::{Ink, Probe, fixtures};
 
     // The "SCORE" label of the Tetris HUD, drawn a bit loosely on the black between the grey
     // separators. Tetris draws its HUD 3 px right of the tile grid, so 5 letters span 6 tiles.
@@ -84,9 +84,10 @@ mod tests {
     fn probe_from_poi_tells_labels_apart() {
         let (_, geo, canvas) = fixtures::tetris();
         let score = optimize_poi(&canvas, &geo, SCORE_DRAWN).unwrap();
-        let probe = Probe::capture(&canvas, score);
+        let probe = Probe::capture(&canvas, score, Ink::Bright);
+        assert!(probe.ink_share() > 0.2);
         assert_eq!(probe.mismatch(&canvas, 0), 0.0);
         // Two tile rows down is "LINES".
-        assert!(probe.mismatch_at(&canvas, 16) > 0.2);
+        assert!(probe.mismatch_at(&canvas, 0, 16) > 0.2);
     }
 }

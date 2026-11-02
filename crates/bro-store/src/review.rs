@@ -242,6 +242,18 @@ impl Store {
         delete_item(&inner.db, &mut inner.review, &self.review_dir(), id)
     }
 
+    /// Deletes every item, its frames and POIs. Returns how many were deleted.
+    pub fn review_delete_all(&self) -> Result<usize> {
+        let mut guard = self.lock();
+        let inner = &mut *guard;
+        let ids: Vec<i64> = inner.review.entries.iter().map(|e| e.id).collect();
+        for &id in &ids {
+            delete_item(&inner.db, &mut inner.review, &self.review_dir(), id)?;
+        }
+        inner.review.skipped = 0;
+        Ok(ids.len())
+    }
+
     pub fn poi_add(
         &self,
         item: i64,
@@ -419,6 +431,21 @@ mod tests {
         store.review_delete(id).unwrap();
         assert!(store.pois(id).unwrap().is_empty());
         assert!(store.poi_add(id, drawn, None, "gone").is_err());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn delete_all_empties_the_queue() {
+        let (store, dir) = temp_store(ReviewConfig { max_items: 2, ..Default::default() });
+        let Offer::New(id) = offer(&store, 0) else { panic!() };
+        store.poi_add(id, Rect::new(0, 0, 10, 10), None, "x").unwrap();
+        offer(&store, u64::MAX);
+        assert_eq!(offer(&store, 0xFFFF_FFFF), Offer::Full);
+        assert_eq!(store.review_delete_all().unwrap(), 2);
+        assert_eq!(store.review_stats(), (0, 2, 0));
+        assert!(store.pois(id).unwrap().is_empty());
+        assert!(fs::read_dir(dir.join("review")).unwrap().next().is_none());
+        assert!(matches!(offer(&store, 0xFFFF_FFFF), Offer::New(_)), "room again");
         fs::remove_dir_all(dir).unwrap();
     }
 }

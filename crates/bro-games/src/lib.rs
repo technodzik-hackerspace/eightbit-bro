@@ -8,17 +8,21 @@ mod tetris;
 
 use anyhow::{Result, bail};
 use bro_capture::{Decoder, FrameData, RawFrame};
-use bro_heart::{GameId, MenuState, Seen};
+use bro_heart::{GameId, GameObs, MenuState, Seen};
 use bro_vision::{Geometry, NesCanvas};
 
 pub use menu::{Menu, MenuRead, MenuRow};
-pub use tetris::Tetris;
+pub use tetris::{References, Tetris};
 
 pub trait GameRecognizer: Send + Sync {
     fn id(&self) -> GameId;
     /// Patterns that are always visible in this game. Must be exclusive: on every fixture at
     /// most one recognizer claims the frame.
     fn claims(&self, c: &NesCanvas) -> bool;
+    /// What else the frame shows, for games with deep recognition.
+    fn observe(&self, _c: &NesCanvas) -> GameObs {
+        GameObs::None
+    }
 }
 
 /// What a half-scale canvas shows.
@@ -39,9 +43,22 @@ pub struct Sight {
     pub menu: Option<MenuRead>,
 }
 
-/// Reference frames the probes are cut from, decoded like live frames.
-const MENU_REFERENCE: &[u8] = include_bytes!("../../../fixtures/frames/pi-2026-11-01/23.jpg");
-const TETRIS_REFERENCE: &[u8] = include_bytes!("../../../fixtures/frames/pi-2026-11-01/13.jpg");
+/// Reference frames the probes are cut from, decoded like live frames: from the Pi (720p)…
+macro_rules! pi {
+    ($n:literal) => {
+        include_bytes!(concat!("../../../fixtures/frames/pi-2026-11-01/", $n, ".jpg"))
+    };
+}
+/// …and from v1's 1080p captures, for screens the Pi hasn't shown yet.
+macro_rules! v1 {
+    ($name:literal) => {
+        include_bytes!(concat!("../../../fixtures/frames/v1-1080p/", $name, ".jpg"))
+    };
+}
+
+/// Where the picture is in v1's 1080p captures (fitted to pixel edges like the 720p one).
+pub const V1_1080P: Geometry =
+    Geometry { picture: bro_vision::Rect { x1: 238, y1: 3, x2: 1683, y2: 1080 } };
 
 pub struct Perception {
     geometry: Geometry,
@@ -57,13 +74,25 @@ impl Perception {
     /// fixtures.
     pub fn new(geometry: Geometry) -> Result<Perception> {
         let mut decoder = Decoder::new()?;
-        let mut reference = |jpeg: &[u8]| -> Result<NesCanvas> {
+        let mut reference = |jpeg: &[u8], geometry: &Geometry| -> Result<NesCanvas> {
             let frame =
                 RawFrame { no: 0, ts: Default::default(), data: FrameData::Jpeg(jpeg.into()) };
-            half_canvas(&mut decoder, &geometry, &frame)
+            half_canvas(&mut decoder, geometry, &frame)
         };
-        let menu = Menu::new(&reference(MENU_REFERENCE)?);
-        let tetris = Tetris::new(&reference(TETRIS_REFERENCE)?);
+        // Each reference is decoded with its own capture's geometry.
+        let pi = Geometry::MS2109_720P;
+        let menu = Menu::new(&reference(pi!("23"), &pi)?);
+        let tetris = Tetris::new(&References {
+            game_select: &reference(pi!("13"), &pi)?,
+            level_select: &reference(pi!("31"), &pi)?,
+            single: &reference(pi!("11"), &pi)?,
+            double: &reference(v1!("game_versus"), &V1_1080P)?,
+            pause: &reference(v1!("game_pause"), &V1_1080P)?,
+            over_left: &reference(v1!("game_over_solo"), &V1_1080P)?,
+            over_right: &reference(v1!("game_over_right"), &V1_1080P)?,
+            bonus_left: &reference(v1!("game_bonus"), &V1_1080P)?,
+            bonus_right: &reference(v1!("bonus3"), &V1_1080P)?,
+        });
         Ok(Perception::with_games(geometry, menu, vec![Box::new(tetris)]))
     }
 
@@ -79,12 +108,16 @@ impl Perception {
         if self.menu.claims(c) {
             return Claim::Menu;
         }
-        let hinted = self.games.iter().filter(|g| Some(g.id()) == hint);
-        let others = self.games.iter().filter(|g| Some(g.id()) != hint);
-        match hinted.chain(others).find(|g| g.claims(c)) {
+        match self.claimant(c, hint) {
             Some(g) => Claim::Game(g.id()),
             None => Claim::Unrecognized,
         }
+    }
+
+    fn claimant(&self, c: &NesCanvas, hint: Option<GameId>) -> Option<&dyn GameRecognizer> {
+        let hinted = self.games.iter().filter(|g| Some(g.id()) == hint);
+        let others = self.games.iter().filter(|g| Some(g.id()) != hint);
+        hinted.chain(others).find(|g| g.claims(c)).map(|g| g.as_ref())
     }
 
     pub fn see(
@@ -96,7 +129,12 @@ impl Perception {
         let canvas = half_canvas(decoder, &self.geometry, frame)?;
         let (seen, menu) = match self.classify(&canvas, hint) {
             Claim::Black => (Seen::Black, None),
-            Claim::Game(game) => (Seen::Game(game), None),
+            Claim::Game(game) => {
+                let obs = self
+                    .claimant(&canvas, Some(game))
+                    .map_or(GameObs::None, |g| g.observe(&canvas));
+                (Seen::Game(game, obs), None)
+            }
             Claim::Unrecognized => (Seen::Unrecognized, None),
             Claim::Menu => {
                 let key = list_key(&canvas);
@@ -144,6 +182,7 @@ fn list_key(c: &NesCanvas) -> u64 {
 mod tests {
     use std::path::Path;
 
+    use bro_heart::tetris::{Layout, TetrisMode, TetrisScreen};
     use serde::Deserialize;
 
     use super::*;
@@ -159,8 +198,17 @@ mod tests {
     struct ExpectedFrame {
         file: String,
         seen: String,
+        // Menu.
         cursor: Option<u8>,
         rows: Option<Vec<String>>,
+        // Tetris.
+        screen: Option<TetrisScreen>,
+        layout: Option<Layout>,
+        mode: Option<TetrisMode>,
+        level: Option<u8>,
+        paused: Option<bool>,
+        bonus: Option<[bool; 2]>,
+        game_over: Option<[bool; 2]>,
     }
 
     fn frame(path: &Path) -> RawFrame {
@@ -168,22 +216,34 @@ mod tests {
         RawFrame { no: 0, ts: Default::default(), data: FrameData::Jpeg(jpeg.into()) }
     }
 
-    /// Every frame the Pi queued on 2026-11-01, each perceived on its own (PRD R3).
-    #[test]
-    fn pi_frames_are_seen_and_menus_read() {
-        let dir = Path::new(FIXTURES).join("pi-2026-11-01");
+    fn check<T: PartialEq + std::fmt::Debug>(
+        failures: &mut Vec<String>,
+        file: &str,
+        what: &str,
+        got: T,
+        want: Option<T>,
+    ) {
+        if let Some(want) = want.filter(|w| *w != got) {
+            failures.push(format!("{file}: {what} {got:?}, want {want:?}"));
+        }
+    }
+
+    /// Perceives every frame of a fixture folder on its own (PRD R3) and compares with its
+    /// `expected.toml`.
+    fn check_fixtures(folder: &str, geometry: Geometry) {
+        let dir = Path::new(FIXTURES).join(folder);
         let expected: Expected =
             toml::from_str(&std::fs::read_to_string(dir.join("expected.toml")).unwrap()).unwrap();
         let mut decoder = Decoder::new().unwrap();
         let mut failures = Vec::new();
         for want in &expected.frame {
-            let mut perception = Perception::new(Geometry::MS2109_720P).unwrap();
+            let mut perception = Perception::new(geometry).unwrap();
             let sight = perception.see(&mut decoder, &frame(&dir.join(&want.file)), None).unwrap();
             let seen = match &sight.seen {
                 Seen::Black => "black",
                 Seen::Menu(_) => "menu",
-                Seen::Game(GameId::Tetris) => "tetris",
-                Seen::Game(_) => "other game",
+                Seen::Game(GameId::Tetris, _) => "tetris",
+                Seen::Game(..) => "other game",
                 Seen::Unrecognized => "unrecognized",
                 Seen::SignalLost => "signal lost",
             };
@@ -191,21 +251,36 @@ mod tests {
                 failures.push(format!("{}: seen {seen}, want {}", want.file, want.seen));
                 continue;
             }
+            let file = want.file.as_str();
             if let (Some(rows), Some(read)) = (&want.rows, &sight.menu) {
                 for (i, (got, want_row)) in read.text.iter().zip(rows).enumerate() {
-                    if got != want_row {
-                        failures.push(format!("{} row {i}: {got:?}, want {want_row:?}", want.file));
-                    }
+                    check(&mut failures, file, &format!("row {i}"), got, Some(want_row));
                 }
-                if read.cursor != want.cursor {
-                    failures.push(format!(
-                        "{}: cursor {:?}, want {:?}",
-                        want.file, read.cursor, want.cursor
-                    ));
-                }
+                check(&mut failures, file, "cursor", read.cursor, Some(want.cursor));
+            }
+            if let Seen::Game(_, GameObs::Tetris(t)) = &sight.seen {
+                check(&mut failures, file, "screen", t.screen, want.screen);
+                check(&mut failures, file, "layout", t.layout, want.layout.map(Some));
+                check(&mut failures, file, "mode", t.mode_cursor, want.mode.map(Some));
+                check(&mut failures, file, "level", t.level_cursor, want.level.map(Some));
+                check(&mut failures, file, "paused", t.paused, want.paused);
+                check(&mut failures, file, "bonus", t.bonus, want.bonus);
+                check(&mut failures, file, "game over", t.game_over, want.game_over);
             }
         }
         assert!(failures.is_empty(), "{}", failures.join("\n"));
+    }
+
+    /// Every frame the Pi queued on 2026-11-01.
+    #[test]
+    fn pi_frames() {
+        check_fixtures("pi-2026-11-01", Geometry::MS2109_720P);
+    }
+
+    /// v1's 1080p fixtures with v1's assertions.
+    #[test]
+    fn v1_frames() {
+        check_fixtures("v1-1080p", V1_1080P);
     }
 
     #[test]
@@ -232,7 +307,7 @@ mod tests {
         let mut decoder = Decoder::new().unwrap();
         let path = Path::new(FIXTURES).join("ms2109_720p_tetris_demo.jpg");
         let sight = perception.see(&mut decoder, &frame(&path), None).unwrap();
-        assert_eq!(sight.seen, Seen::Game(GameId::Tetris));
+        assert!(matches!(sight.seen, Seen::Game(GameId::Tetris, _)));
     }
 
     /// Claims frames whose top-left pixel has this red value.

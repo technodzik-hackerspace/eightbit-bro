@@ -1,57 +1,120 @@
 # What perception must see on each frame the Pi queued on 2026-11-01 (review items 1-32).
 # Menu rows are "<number>.<name>" as on screen, '?' where a cell isn't a known glyph.
+# Tetris: screen, layout, cursors and flags; fields left out are not checked.
 
 [[frame]]
 file = "1.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "2.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "3.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "4.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "5.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "6.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "7.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "8.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "9.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "10.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "11.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "12.jpg"
 seen = "tetris"
+screen = "Playing"
+layout = "Single"
+paused = false
+game_over = [false, false]
+bonus = [false, false]
 
 [[frame]]
 file = "13.jpg"
 seen = "tetris"
+screen = "ModeSelect"
+mode = "OnePlayer"
 
 [[frame]]
 file = "14.jpg"
@@ -469,6 +532,8 @@ seen = "black"
 [[frame]]
 file = "31.jpg"
 seen = "tetris"
+screen = "LevelSelect"
+level = 0
 
 [[frame]]
 file = "32.jpg"

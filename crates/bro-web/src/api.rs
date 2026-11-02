@@ -28,7 +28,7 @@ pub fn router() -> Router<Arc<Context>> {
         .route("/events", get(events))
         .route("/preview.jpg", get(preview))
         .route("/config", get(config))
-        .route("/review", get(review_list))
+        .route("/review", get(review_list).delete(review_delete_all))
         .route("/review/{id}", get(review_get).patch(review_update).delete(review_delete))
         .route("/review/{id}/frame.jpg", get(review_frame))
         .route("/review/{id}/canvas.png", get(review_canvas))
@@ -161,6 +161,11 @@ async fn review_update(
 ) -> ApiResult {
     ctx.store.review_update(id, u.status, u.note.as_deref())?;
     Ok(Json(json!({"ok": true})).into_response())
+}
+
+async fn review_delete_all(State(ctx): Ctx) -> ApiResult {
+    let deleted = ctx.store.review_delete_all()?;
+    Ok(Json(json!({ "deleted": deleted })).into_response())
 }
 
 async fn review_delete(State(ctx): Ctx, Path(id): Path<i64>) -> ApiResult {

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::state::{ConsoleState, GameDetail, GameId, Observation, Seen};
+use crate::state::{ConsoleState, GameDetail, GameId, GameObs, Observation, Seen};
+use crate::tetris;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Event {
@@ -24,12 +25,12 @@ pub fn reduce(prev: &ConsoleState, obs: &Observation) -> (ConsoleState, Vec<Even
         (Seen::SignalLost, _) => ConsoleState::NoSignal,
         // R5: positive recognition always wins.
         (Seen::Menu(m), _) => ConsoleState::Menu(m.clone()),
-        (Seen::Game(game), _) => enter_game(prev, *game),
+        (Seen::Game(game, obs), _) => enter_game(prev, *game, obs),
         // R4: black frames keep the game (level transitions) and the menu.
         (Seen::Black, _) => prev.clone(),
         // R4: the game is kept; the frame itself goes to the review queue (outside `reduce`).
         (Seen::Unrecognized, ConsoleState::InGame { .. }) => prev.clone(),
-        (Seen::Unrecognized, _) => enter_game(prev, GameId::Other),
+        (Seen::Unrecognized, _) => enter_game(prev, GameId::Other, &GameObs::None),
     };
 
     let (from, to) = (prev.path(), next.path());
@@ -40,14 +41,27 @@ pub fn reduce(prev: &ConsoleState, obs: &Observation) -> (ConsoleState, Vec<Even
     (next, events)
 }
 
-fn enter_game(prev: &ConsoleState, game: GameId) -> ConsoleState {
-    let menu_selection = match prev {
-        ConsoleState::InGame { game: g, .. } if *g == game => return prev.clone(),
-        ConsoleState::InGame { menu_selection, .. } => *menu_selection,
-        ConsoleState::Menu(m) => m.highlighted,
-        ConsoleState::NoSignal => None,
+fn enter_game(prev: &ConsoleState, game: GameId, obs: &GameObs) -> ConsoleState {
+    let (prev_detail, menu_selection) = match prev {
+        ConsoleState::InGame { game: g, detail, menu_selection } if *g == game => {
+            (Some(detail), *menu_selection)
+        }
+        ConsoleState::InGame { menu_selection, .. } => (None, *menu_selection),
+        ConsoleState::Menu(m) => (None, m.highlighted),
+        ConsoleState::NoSignal => (None, None),
     };
-    ConsoleState::InGame { game, detail: GameDetail::None, menu_selection }
+    let cold = *prev == ConsoleState::NoSignal;
+    let detail = match obs {
+        GameObs::None => prev_detail.cloned().unwrap_or(GameDetail::None),
+        GameObs::Tetris(o) => {
+            let prev = match prev_detail {
+                Some(GameDetail::Tetris(t)) => Some(t),
+                _ => None,
+            };
+            GameDetail::Tetris(tetris::reduce(prev, o, cold))
+        }
+    };
+    ConsoleState::InGame { game, detail, menu_selection }
 }
 
 #[cfg(test)]
@@ -131,7 +145,7 @@ mod tests {
     #[test]
     fn r5_recognized_game_replaces_other_and_keeps_menu_selection() {
         let (other, _) = step(&menu(5, Title::TetrisIi), Seen::Unrecognized);
-        let (next, _) = step(&other, Seen::Game(GameId::Tetris));
+        let (next, _) = step(&other, Seen::Game(GameId::Tetris, GameObs::None));
         assert_eq!(
             next,
             ConsoleState::InGame {
@@ -145,7 +159,7 @@ mod tests {
     #[test]
     fn same_game_again_is_no_event() {
         let prev = in_game(GameId::Jewelry);
-        assert_eq!(step(&prev, Seen::Game(GameId::Jewelry)), (prev, vec![]));
+        assert_eq!(step(&prev, Seen::Game(GameId::Jewelry, GameObs::None)), (prev, vec![]));
     }
 
     #[test]
@@ -153,5 +167,26 @@ mod tests {
         let (next, events) = step(&in_game(GameId::Tetris), Seen::SignalLost);
         assert_eq!(next, ConsoleState::NoSignal);
         assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn tetris_detail_follows_the_screens() {
+        use crate::tetris::{TetrisMode, TetrisObs, TetrisScreen};
+        let mode = TetrisObs {
+            mode_cursor: Some(TetrisMode::OnePlayer),
+            ..TetrisObs::screen(TetrisScreen::ModeSelect)
+        };
+        let (s, events) =
+            step(&menu(6, Title::TetrisIi), Seen::Game(GameId::Tetris, GameObs::Tetris(mode)));
+        assert_eq!(s.path(), "InGame/Tetris/ModeSelect/1P");
+        assert_eq!(
+            events,
+            vec![EventKind::Changed {
+                from: "Menu/p1/c6/TETRIS II".into(),
+                to: "InGame/Tetris/ModeSelect/1P".into()
+            }]
+        );
+        let (s, _) = step(&s, Seen::Unrecognized);
+        assert_eq!(s.path(), "InGame/Tetris/ModeSelect/1P", "unknown frames keep the state");
     }
 }

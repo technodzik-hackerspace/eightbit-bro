@@ -1,0 +1,123 @@
+# v1's assertions on its 1080p fixtures (tetris-recorder/tests, commit 2cfadbf), ported.
+# The frames were converted from PNG to JPEG (q 2), like the live capture's MJPEG.
+# menu: v1's 1080p capture draws the dim blue "GAME SELECT" text thinner than the Pi's 720p
+# one, so the game select probe (cut from the Pi) doesn't match it: Tetris, unknown screen.
+
+[[frame]]
+file = "game_started_multi.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+bonus = [false, false]
+game_over = [false, false]
+
+[[frame]]
+file = "326_2580.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+bonus = [false, false]
+game_over = [true, true]
+
+[[frame]]
+file = "12283_2680.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+bonus = [false, false]
+game_over = [true, true]
+
+[[frame]]
+file = "game_over_both.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+bonus = [false, false]
+game_over = [true, true]
+
+[[frame]]
+file = "game_over_solo.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [true, false]
+
+[[frame]]
+file = "game_over_right.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+game_over = [false, true]
+
+[[frame]]
+file = "p1_in_game_p2_game_over.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, true]
+
+[[frame]]
+file = "game_versus.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, false]
+
+[[frame]]
+file = "paused_2p.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = true
+
+[[frame]]
+file = "game_pause.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = true
+
+[[frame]]
+file = "game_pause2.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = true
+
+[[frame]]
+file = "game_bonus.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+bonus = [true, false]
+
+[[frame]]
+file = "bonus2.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+bonus = [true, false]
+
+[[frame]]
+file = "bonus3.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+bonus = [false, true]
+
+[[frame]]
+file = "menu.jpg"
+seen = "tetris"
+screen = "Unknown"
+
+[[frame]]
+file = "not_tetris.jpg"
+seen = "unrecognized"

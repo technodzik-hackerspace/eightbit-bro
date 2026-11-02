@@ -5,7 +5,7 @@
 use std::ops::Range;
 
 use bro_heart::{MenuState, Title};
-use bro_vision::{NesCanvas, Probe, Rect};
+use bro_vision::{Ink, NesCanvas, Probe, Rect};
 
 use crate::font;
 
@@ -61,7 +61,7 @@ impl Menu {
         let blue = [0, 1, 2].map(|i| {
             (samples.iter().map(|c| c[i] as u32).sum::<u32>() / samples.len() as u32) as u8
         });
-        Menu { header: Probe::capture(reference, HEADER), blue }
+        Menu { header: Probe::capture(reference, HEADER, Ink::Bright), blue }
     }
 
     pub fn claims(&self, c: &NesCanvas) -> bool {

@@ -8,7 +8,7 @@ use std::time::Instant;
 use anyhow::Result;
 use bro_capture::{Decoder, FrameData, RawFrame};
 use bro_games::{MenuRead, MenuRow, Perception};
-use bro_heart::{ConsoleState, EventKind, Observation, Seen, Title, reduce};
+use bro_heart::{ConsoleState, EventKind, Observation, Title, reduce};
 use bro_store::{Offer, Store};
 use bro_vision::{Geometry, NesCanvas};
 use bro_web::{Live, Push};
@@ -58,9 +58,9 @@ impl Pipeline {
         if let Some(read) = &sight.menu {
             self.log_menu_page(read);
         }
-        let unrecognized = sight.seen == Seen::Unrecognized;
+        let review = sight.seen.needs_review();
         self.observe(Observation { frame_no: frame.no, seen: sight.seen });
-        if unrecognized && let Err(err) = self.review(frame, &sight.canvas) {
+        if review && let Err(err) = self.review(frame, &sight.canvas) {
             warn!(frame = frame.no, %err, "review queue");
         }
         stats.processed.fetch_add(1, Ordering::Relaxed);

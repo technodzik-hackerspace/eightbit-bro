@@ -3,6 +3,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::Title;
+use crate::tetris::{TetrisObs, TetrisState};
 
 /// Games with a recognizer. Everything else the console runs is `Other`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -32,11 +33,18 @@ pub struct MenuState {
     pub highlighted: Option<Title>,
 }
 
-/// Game-specific subtree. Games without deep recognition have none; Tetris gets its
-/// subtree in M3.
+/// Game-specific subtree. Games without deep recognition have none.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameDetail {
     None,
+    Tetris(TetrisState),
+}
+
+/// What a game recognizer saw in one frame, beyond "this is the game".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GameObs {
+    None,
+    Tetris(TetrisObs),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,6 +69,11 @@ impl ConsoleState {
                 Some(title) => format!("Menu/p{}/c{}/{}", m.page, m.cursor, title.name()),
                 None => format!("Menu/p{}/c{}", m.page, m.cursor),
             },
+            ConsoleState::InGame { game, detail: GameDetail::Tetris(t), .. }
+                if !t.path().is_empty() =>
+            {
+                format!("InGame/{game}/{}", t.path())
+            }
             ConsoleState::InGame { game, .. } => format!("InGame/{game}"),
         }
     }
@@ -81,7 +94,22 @@ pub enum Seen {
     Black,
     Menu(MenuState),
     /// A recognizer claimed the frame.
-    Game(GameId),
+    Game(GameId, GameObs),
     /// Not black, and no recognizer claimed it.
     Unrecognized,
+}
+
+impl Seen {
+    /// Frames for the review queue: nobody claimed them, or a game claimed them but doesn't
+    /// know the screen.
+    pub fn needs_review(&self) -> bool {
+        matches!(
+            self,
+            Seen::Unrecognized
+                | Seen::Game(
+                    _,
+                    GameObs::Tetris(TetrisObs { screen: crate::tetris::TetrisScreen::Unknown, .. })
+                )
+        )
+    }
 }

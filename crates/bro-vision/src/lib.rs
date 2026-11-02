@@ -9,7 +9,7 @@ mod probe;
 pub use canvas::{H, NesCanvas, W, hamming, luma};
 pub use geometry::{Geometry, Rect};
 pub use poi::optimize_poi;
-pub use probe::Probe;
+pub use probe::{Ink, Probe};
 
 #[cfg(test)]
 pub(crate) mod fixtures {

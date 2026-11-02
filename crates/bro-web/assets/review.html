@@ -7,6 +7,7 @@
     <h1>Unknown screens</h1>
     <div class="row">
       <span class="muted small" id="stats"></span>
+      <button class="danger" id="deleteall">Delete all</button>
       <select id="status" style="width:auto">
         <option value="">All</option><option value="new" selected>New</option>
         <option value="reviewed">Reviewed</option><option value="ignored">Ignored</option>
@@ -47,6 +48,11 @@ async function load() {
   render();
 }
 sel.onchange = render;
+document.getElementById("deleteall").onclick = async () => {
+  if (!items.length || !confirm(`Delete all ${items.length} unknown screens and their POIs?`)) return;
+  await api("/review", { method: "DELETE" });
+  load();
+};
 stream({ review: load });
 load();
 </script>

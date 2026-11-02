@@ -252,18 +252,29 @@ cut from a reference fixture, with a capped share of differing pixels (R1).
 
 ### 3.7 Tetris module
 
-- **Layouts:** 1P, 2P versus, coop (shared well), versus/with computer, plus title,
-  mode select, level select, pause, bonus, game over. Each layout has probes; `observe()`
-  returns `TetrisObs { screen, layout, players: [PlayerObs], paused, bonus }`.
-- **OCR:** digits are NES font tiles, so we compare the tiles against the 10 digit
-  tiles on the canvas. This is exact, with no thresholds tuned on HD images (fixes the v1
-  template-matching fragility). Digits that don't match are `None`, never guessed.
-- **Per-player game over:** "GAME OVER" box tiles inside that player's well. Sticky in the reducer;
-  the player's score/lines/level are frozen from that observation (PRD T7).
-- **Start level:** from the LevelSelect cursor and from the first `Playing` LEVEL counter,
-  cross-checked (PRD T2).
-- v1 fixtures (1080p PNGs) are ported as test inputs. They go through the same canvas path,
-  using a 1080p geometry calibration.
+Status: screens and flags done; scores/lines/level OCR and the title screen not yet.
+
+- **Identity:** the SCORE / LINES / LEVEL labels (owner's POI), identical in gameplay, game
+  select and level select, in both layouts.
+- **Screens** (`TetrisObs.screen`): game select ("GAME SELECT" title, POI) with the mode under
+  the arrow; level select ("LEVEL SELECT", POI) with the level 0–9 under the arrow; playing
+  (layout found); otherwise `Unknown`, and the frame goes to the review queue.
+- **Layout:** STATS (POI) means one player or the demo; NEXT on the right means two wells.
+- **Flags:** PAUSE box; GAME OVER box per well; BONUS per well. Probes for these come from the
+  v1 1080p fixtures (the Pi hasn't shown them yet), decoded with the v1 geometry.
+- **Probes** compare the *lit* mask (any channel > 100) on the black background, so red
+  (NEXT, BONUS) and dim blue text (GAME SELECT) count; ≤ 10 % differing pixels within ±2 px.
+  The labels allow 20 %: probes cut from the Pi differ by ~11 % on v1's captures.
+- **State** (`bro_heart::tetris`): the mode and start level highlighted when leaving the
+  select screens; the session is **clean** after the select screens, **dirty** on a cold
+  start, **demo** when play starts without them (PRD T3, T4). Game over is sticky per player
+  (T7). Unknown screens keep the state.
+- **OCR (next):** the HUD uses its own font (its "1" has a base serif), so its digit tiles are
+  learned from fixtures with known values (v1's `{P1}_{P2}` files and Pi frames), like the
+  menu font. Digits that don't match are `None`, never guessed.
+- **v1 fixtures** (`fixtures/frames/v1-1080p`, JPEG) carry v1's assertions in
+  `expected.toml`: Tetris or not, 2P, pause, bonus, game over per player. Not yet ported:
+  scores/lines/levels and the 1,500-frame captured sequence.
 
 ## 4. Recorder
 
