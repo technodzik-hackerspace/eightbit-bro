@@ -256,12 +256,18 @@ Status: screens and flags done; scores/lines/level OCR and the title screen not 
 
 - **Identity:** the SCORE / LINES / LEVEL labels (owner's POI), identical in gameplay, game
   select and level select, in both layouts.
-- **Screens** (`TetrisObs.screen`): game select ("GAME SELECT" title, POI) with the mode under
-  the arrow; level select ("LEVEL SELECT", POI) with the level 0–9 under the arrow; playing
-  (layout found); otherwise `Unknown`, and the frame goes to the review queue.
+- **Screens** (`TetrisObs.screen`), in the console's order: the splash ("1993 TETRIS GAME",
+  also claims Tetris: the demo starts here); game select (mode under the arrow); level select
+  (level 0–9 per player: P1's arrow left of the digits, P2's right); handicap select
+  (0/3/6/9/12 per player); music select; playing (layout found); otherwise `Unknown`, and the
+  frame goes to the review queue. All from the owner's POIs on live frames.
+- **Recognition before "blanked":** the splash is mostly black, so a frame is treated as a
+  blanked transition only when no recognizer claims it.
 - **Layout:** STATS (POI) means one player or the demo; NEXT on the right means two wells.
-- **Flags:** PAUSE box; GAME OVER box per well; BONUS per well. Probes for these come from the
-  v1 1080p fixtures (the Pi hasn't shown them yet), decoded with the v1 geometry.
+- **Flags:** PAUSE box; GAME OVER box per well; BONUS per well. An element can have several
+  reference probes (live 720p and v1 1080p) and shows if any matches: the 2P layout's right
+  NEXT is 8 px further right on the live capture than on v1's. Pause and bonus still come
+  from v1 only (decoded with the v1 geometry).
 - **Probes** compare the *lit* mask (any channel > 100) on the black background, so red
   (NEXT, BONUS) and dim blue text (GAME SELECT) count; ≤ 10 % differing pixels within ±2 px.
   The labels allow 20 %: probes cut from the Pi differ by ~11 % on v1's captures.

@@ -4,10 +4,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TetrisScreen {
+    /// "1993 TETRIS GAME / PUSH START BUTTON". The demo starts from here.
+    Title,
     /// "GAME SELECT": the mode list.
     ModeSelect,
-    /// "LEVEL SELECT": the start level.
+    /// "LEVEL SELECT": the start level, per player.
     LevelSelect,
+    /// "HANDICAP SELECT": 0, 3, 6, 9 or 12 rows of garbage, per player.
+    HandicapSelect,
+    /// "MUSIC SELECT": the last screen before the game.
+    MusicSelect,
     /// A game (or the demo) is on: wells and NEXT.
     Playing,
     /// A Tetris screen we don't know yet: the frame goes to the review queue.
@@ -44,6 +50,29 @@ impl TetrisMode {
     }
 }
 
+/// The music select list, top to bottom.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum TetrisMusic {
+    Silence,
+    Loginska,
+    Bradinsky,
+    Karinka,
+    Troika,
+}
+
+impl TetrisMusic {
+    pub const ALL: [TetrisMusic; 5] = [
+        TetrisMusic::Silence,
+        TetrisMusic::Loginska,
+        TetrisMusic::Bradinsky,
+        TetrisMusic::Karinka,
+        TetrisMusic::Troika,
+    ];
+}
+
+/// Handicap values on the handicap select screen, top to bottom.
+pub const HANDICAPS: [u8; 5] = [0, 3, 6, 9, 12];
+
 /// The playfield layout: one well with STATS, or two wells.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Layout {
@@ -57,8 +86,12 @@ pub struct TetrisObs {
     pub screen: TetrisScreen,
     /// The arrow on the game select screen.
     pub mode_cursor: Option<TetrisMode>,
-    /// The arrow on the level select screen.
-    pub level_cursor: Option<u8>,
+    /// The arrows on the level select screen: player 1 (left of the digits), player 2 (right).
+    pub level_cursor: [Option<u8>; 2],
+    /// The arrows on the handicap select screen, as handicap values.
+    pub handicap_cursor: [Option<u8>; 2],
+    /// The arrow on the music select screen.
+    pub music_cursor: Option<TetrisMusic>,
     pub layout: Option<Layout>,
     pub paused: bool,
     /// BONUS shown in the left / right well.
@@ -72,7 +105,9 @@ impl TetrisObs {
         TetrisObs {
             screen,
             mode_cursor: None,
-            level_cursor: None,
+            level_cursor: [None; 2],
+            handicap_cursor: [None; 2],
+            music_cursor: None,
             layout: None,
             paused: false,
             bonus: [false; 2],
@@ -98,8 +133,11 @@ pub struct TetrisState {
     pub screen: Option<TetrisScreen>,
     /// Highlighted on game select, kept for the game.
     pub mode: Option<TetrisMode>,
-    /// Highlighted on level select, kept for the game.
-    pub start_level: Option<u8>,
+    /// Highlighted on level select (per player), kept for the game.
+    pub start_level: [Option<u8>; 2],
+    /// Highlighted on handicap select (per player), kept for the game.
+    pub handicap: [Option<u8>; 2],
+    pub music: Option<TetrisMusic>,
     pub layout: Option<Layout>,
     pub session: Option<Session>,
     pub paused: bool,
@@ -113,7 +151,9 @@ impl TetrisState {
         TetrisState {
             screen: None,
             mode: None,
-            start_level: None,
+            start_level: [None; 2],
+            handicap: [None; 2],
+            music: None,
             layout: None,
             session: None,
             paused: false,
@@ -122,18 +162,27 @@ impl TetrisState {
         }
     }
 
-    /// e.g. `ModeSelect/1P`, `LevelSelect/L9`, `Playing/2P/clean/L9/paused/P2 over`.
+    /// e.g. `ModeSelect/1P`, `LevelSelect/L3-5`, `Playing/2P/clean/L3-5/paused/P2 over`.
     pub fn path(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
         match self.screen {
             None | Some(TetrisScreen::Unknown) => return String::new(),
+            Some(TetrisScreen::Title) => parts.push("Title".into()),
             Some(TetrisScreen::ModeSelect) => {
                 parts.push("ModeSelect".into());
                 parts.extend(self.mode.map(|m| m.label().to_owned()));
             }
             Some(TetrisScreen::LevelSelect) => {
                 parts.push("LevelSelect".into());
-                parts.extend(self.start_level.map(|l| format!("L{l}")));
+                parts.extend(per_player("L", self.start_level));
+            }
+            Some(TetrisScreen::HandicapSelect) => {
+                parts.push("HandicapSelect".into());
+                parts.extend(per_player("H", self.handicap));
+            }
+            Some(TetrisScreen::MusicSelect) => {
+                parts.push("MusicSelect".into());
+                parts.extend(self.music.map(|m| format!("{m:?}")));
             }
             Some(TetrisScreen::Playing) => {
                 parts.push("Playing".into());
@@ -142,7 +191,7 @@ impl TetrisState {
                     Layout::Double => "2P".to_owned(),
                 }));
                 parts.extend(self.session.map(|s| format!("{s:?}").to_lowercase()));
-                parts.extend(self.start_level.map(|l| format!("L{l}")));
+                parts.extend(per_player("L", self.start_level));
                 if self.paused {
                     parts.push("paused".into());
                 }
@@ -160,26 +209,54 @@ impl TetrisState {
     }
 }
 
+/// `L3` for one player, `L3-5` for two; nothing when unknown.
+fn per_player(prefix: &str, values: [Option<u8>; 2]) -> Option<String> {
+    match values {
+        [Some(a), Some(b)] => Some(format!("{prefix}{a}-{b}")),
+        [Some(a), None] => Some(format!("{prefix}{a}")),
+        _ => None,
+    }
+}
+
 /// The next Tetris state. `prev` is `None` when the console just entered Tetris; `cold` when
 /// it came from no signal (the service joined mid-game).
 pub fn reduce(prev: Option<&TetrisState>, obs: &TetrisObs, cold: bool) -> TetrisState {
     let mut s = prev.cloned().unwrap_or_else(TetrisState::new);
     match obs.screen {
         TetrisScreen::Unknown => {}
+        TetrisScreen::Title => {
+            // Back at the splash: whatever game there was is over.
+            s = TetrisState { screen: Some(TetrisScreen::Title), ..TetrisState::new() };
+        }
         TetrisScreen::ModeSelect => {
             // A new game is being set up.
             s = TetrisState { mode: obs.mode_cursor.or(s.mode), ..TetrisState::new() };
             s.screen = Some(TetrisScreen::ModeSelect);
         }
         TetrisScreen::LevelSelect => {
-            s.start_level = obs.level_cursor.or(s.start_level);
+            s.start_level = [0, 1].map(|i| obs.level_cursor[i].or(s.start_level[i]));
             s.session = None;
             s.topped_out = [false; 2];
             s.screen = Some(TetrisScreen::LevelSelect);
         }
+        TetrisScreen::HandicapSelect => {
+            s.handicap = [0, 1].map(|i| obs.handicap_cursor[i].or(s.handicap[i]));
+            s.session = None;
+            s.screen = Some(TetrisScreen::HandicapSelect);
+        }
+        TetrisScreen::MusicSelect => {
+            s.music = obs.music_cursor.or(s.music);
+            s.session = None;
+            s.screen = Some(TetrisScreen::MusicSelect);
+        }
         TetrisScreen::Playing => {
             let starting = match s.screen {
-                Some(TetrisScreen::ModeSelect | TetrisScreen::LevelSelect) => Some(Session::Clean),
+                Some(
+                    TetrisScreen::ModeSelect
+                    | TetrisScreen::LevelSelect
+                    | TetrisScreen::HandicapSelect
+                    | TetrisScreen::MusicSelect,
+                ) => Some(Session::Clean),
                 _ if s.session.is_some() => None,
                 _ if prev.is_none() && cold => Some(Session::Dirty),
                 // Title (or nothing) → playing: the demo (PRD T3).
@@ -230,14 +307,34 @@ mod tests {
                     mode_cursor: Some(TetrisMode::TwoPlayer),
                     ..TetrisObs::screen(TetrisScreen::ModeSelect)
                 },
-                TetrisObs { level_cursor: Some(9), ..TetrisObs::screen(TetrisScreen::LevelSelect) },
+                TetrisObs {
+                    level_cursor: [Some(3), Some(5)],
+                    ..TetrisObs::screen(TetrisScreen::LevelSelect)
+                },
+                TetrisObs {
+                    handicap_cursor: [Some(0), Some(6)],
+                    ..TetrisObs::screen(TetrisScreen::HandicapSelect)
+                },
+                TetrisObs {
+                    music_cursor: Some(TetrisMusic::Troika),
+                    ..TetrisObs::screen(TetrisScreen::MusicSelect)
+                },
                 playing(),
             ],
         );
         assert_eq!(s.mode, Some(TetrisMode::TwoPlayer));
-        assert_eq!(s.start_level, Some(9));
+        assert_eq!(s.start_level, [Some(3), Some(5)]);
+        assert_eq!(s.handicap, [Some(0), Some(6)]);
+        assert_eq!(s.music, Some(TetrisMusic::Troika));
         assert_eq!(s.session, Some(Session::Clean));
-        assert_eq!(s.path(), "Playing/2P/clean/L9");
+        assert_eq!(s.path(), "Playing/2P/clean/L3-5");
+    }
+
+    #[test]
+    fn title_then_playing_is_the_demo_even_after_a_game() {
+        let s = run(None, true, &[playing(), TetrisObs::screen(TetrisScreen::Title), playing()]);
+        assert_eq!(s.session, Some(Session::Demo));
+        assert_eq!(s.path(), "Playing/2P/demo");
     }
 
     #[test]

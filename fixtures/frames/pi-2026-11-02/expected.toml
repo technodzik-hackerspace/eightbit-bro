@@ -1,0 +1,105 @@
+# Frames the Pi queued, and the owner captured, on 2026-11-02 (review items).
+# Two-player Tetris on the live 720p capture: select screens, the splash, games, game over.
+
+[[frame]]
+file = "1.jpg"
+seen = "tetris"
+screen = "LevelSelect"
+level = [3, 5]
+
+[[frame]]
+file = "5.jpg"
+seen = "tetris"
+screen = "Title"
+
+[[frame]]
+file = "33.jpg"
+seen = "tetris"
+screen = "HandicapSelect"
+handicap = [0, 0]
+
+[[frame]]
+file = "34.jpg"
+seen = "tetris"
+screen = "MusicSelect"
+music = "Silence"
+
+[[frame]]
+file = "35.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, false]
+
+[[frame]]
+file = "36.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, false]
+
+[[frame]]
+file = "37.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, false]
+
+[[frame]]
+file = "38.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, false]
+
+[[frame]]
+file = "39.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, false]
+
+[[frame]]
+file = "40.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, true]
+
+[[frame]]
+file = "41.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [true, true]
+
+[[frame]]
+file = "42.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, false]
+
+[[frame]]
+file = "43.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [false, false]
+
+[[frame]]
+file = "44.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+paused = false
+game_over = [true, false]

@@ -49,6 +49,11 @@ macro_rules! pi {
         include_bytes!(concat!("../../../fixtures/frames/pi-2026-11-01/", $n, ".jpg"))
     };
 }
+macro_rules! pi2 {
+    ($n:literal) => {
+        include_bytes!(concat!("../../../fixtures/frames/pi-2026-11-02/", $n, ".jpg"))
+    };
+}
 /// …and from v1's 1080p captures, for screens the Pi hasn't shown yet.
 macro_rules! v1 {
     ($name:literal) => {
@@ -86,12 +91,18 @@ impl Perception {
             game_select: &reference(pi!("13"), &pi)?,
             level_select: &reference(pi!("31"), &pi)?,
             single: &reference(pi!("11"), &pi)?,
-            double: &reference(v1!("game_versus"), &V1_1080P)?,
-            pause: &reference(v1!("game_pause"), &V1_1080P)?,
-            over_left: &reference(v1!("game_over_solo"), &V1_1080P)?,
-            over_right: &reference(v1!("game_over_right"), &V1_1080P)?,
-            bonus_left: &reference(v1!("game_bonus"), &V1_1080P)?,
-            bonus_right: &reference(v1!("bonus3"), &V1_1080P)?,
+            title: &reference(pi2!("5"), &pi)?,
+            handicap_select: &reference(pi2!("33"), &pi)?,
+            music_select: &reference(pi2!("34"), &pi)?,
+            double: &reference(pi2!("36"), &pi)?,
+            over_left: &reference(pi2!("44"), &pi)?,
+            over_right: &reference(pi2!("40"), &pi)?,
+            v1_double: &reference(v1!("game_versus"), &V1_1080P)?,
+            v1_over_left: &reference(v1!("game_over_solo"), &V1_1080P)?,
+            v1_over_right: &reference(v1!("game_over_right"), &V1_1080P)?,
+            v1_pause: &reference(v1!("game_pause"), &V1_1080P)?,
+            v1_bonus_left: &reference(v1!("game_bonus"), &V1_1080P)?,
+            v1_bonus_right: &reference(v1!("bonus3"), &V1_1080P)?,
         });
         Ok(Perception::with_games(geometry, menu, vec![Box::new(tetris)]))
     }
@@ -102,16 +113,15 @@ impl Perception {
 
     /// `hint` (usually the current game) is tried first. It changes speed, never the result.
     pub fn classify(&self, c: &NesCanvas, hint: Option<GameId>) -> Claim {
-        if c.is_blanked() {
-            return Claim::Black;
-        }
+        // Positive recognition first (PRD R5): some screens are mostly black (the Tetris
+        // splash), and a blanked transition frame is never claimed.
         if self.menu.claims(c) {
             return Claim::Menu;
         }
-        match self.claimant(c, hint) {
-            Some(g) => Claim::Game(g.id()),
-            None => Claim::Unrecognized,
+        if let Some(g) = self.claimant(c, hint) {
+            return Claim::Game(g.id());
         }
+        if c.is_blanked() { Claim::Black } else { Claim::Unrecognized }
     }
 
     fn claimant(&self, c: &NesCanvas, hint: Option<GameId>) -> Option<&dyn GameRecognizer> {
@@ -182,7 +192,7 @@ fn list_key(c: &NesCanvas) -> u64 {
 mod tests {
     use std::path::Path;
 
-    use bro_heart::tetris::{Layout, TetrisMode, TetrisScreen};
+    use bro_heart::tetris::{Layout, TetrisMode, TetrisMusic, TetrisScreen};
     use serde::Deserialize;
 
     use super::*;
@@ -205,7 +215,10 @@ mod tests {
         screen: Option<TetrisScreen>,
         layout: Option<Layout>,
         mode: Option<TetrisMode>,
-        level: Option<u8>,
+        /// Per player, -1 for no arrow (TOML has no null).
+        level: Option<[i16; 2]>,
+        handicap: Option<[i16; 2]>,
+        music: Option<TetrisMusic>,
         paused: Option<bool>,
         bonus: Option<[bool; 2]>,
         game_over: Option<[bool; 2]>,
@@ -262,7 +275,16 @@ mod tests {
                 check(&mut failures, file, "screen", t.screen, want.screen);
                 check(&mut failures, file, "layout", t.layout, want.layout.map(Some));
                 check(&mut failures, file, "mode", t.mode_cursor, want.mode.map(Some));
-                check(&mut failures, file, "level", t.level_cursor, want.level.map(Some));
+                let per_player = |v: [i16; 2]| v.map(|x| u8::try_from(x).ok());
+                check(&mut failures, file, "level", t.level_cursor, want.level.map(per_player));
+                check(
+                    &mut failures,
+                    file,
+                    "handicap",
+                    t.handicap_cursor,
+                    want.handicap.map(per_player),
+                );
+                check(&mut failures, file, "music", t.music_cursor, want.music.map(Some));
                 check(&mut failures, file, "paused", t.paused, want.paused);
                 check(&mut failures, file, "bonus", t.bonus, want.bonus);
                 check(&mut failures, file, "game over", t.game_over, want.game_over);
@@ -275,6 +297,12 @@ mod tests {
     #[test]
     fn pi_frames() {
         check_fixtures("pi-2026-11-01", Geometry::MS2109_720P);
+    }
+
+    /// The frames the Pi queued on 2026-11-02, and the owner captured.
+    #[test]
+    fn pi_frames_2() {
+        check_fixtures("pi-2026-11-02", Geometry::MS2109_720P);
     }
 
     /// v1's 1080p fixtures with v1's assertions.

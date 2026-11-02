@@ -533,7 +533,7 @@ seen = "black"
 file = "31.jpg"
 seen = "tetris"
 screen = "LevelSelect"
-level = 0
+level = [0, -1]
 
 [[frame]]
 file = "32.jpg"

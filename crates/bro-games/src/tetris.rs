@@ -1,15 +1,14 @@
 //! Tetris (PRD §6.1). Every probe is a region cut from a reference frame: the owner's POIs on
-//! the Pi frames, and the v1 fixtures for what the Pi hasn't seen yet (two players, pause,
-//! game over, bonus).
+//! the Pi frames, and the v1 1080p fixtures for what the Pi hasn't shown yet (pause, bonus).
+//! Where both exist, an element matches if either reference does.
 
-use bro_heart::GameId;
-use bro_heart::GameObs;
-use bro_heart::tetris::{Layout, TetrisMode, TetrisObs, TetrisScreen};
+use bro_heart::tetris::{HANDICAPS, Layout, TetrisMode, TetrisMusic, TetrisObs, TetrisScreen};
+use bro_heart::{GameId, GameObs};
 use bro_vision::{Ink, NesCanvas, Probe, Rect};
 
 use crate::GameRecognizer;
 
-/// The SCORE / LINES / LEVEL labels: on every Tetris screen we know, in the same place
+/// The SCORE / LINES / LEVEL labels: on every Tetris screen but the title, in the same place
 /// (the owner's POI on review item 13).
 const LABELS: Rect = Rect { x1: 106, y1: 15, x2: 148, y2: 57 };
 /// Probes cut from the Pi are exact on the Pi; the v1 captures differ by ~0.11.
@@ -17,62 +16,95 @@ const LABELS_MAX_MISMATCH: f32 = 0.2;
 const MAX_MISMATCH: f32 = 0.1;
 const MAX_SHIFT: i32 = 2;
 
-/// Where each probe comes from.
+/// Where each probe comes from. `pi*` are the live 720p capture, `v1_*` v1's 1080p one.
 pub struct References<'a> {
-    /// Pi item 13: game select, 1-player layout (owner's POIs).
+    /// Pi 2026-11-01 item 13: game select, 1-player layout (owner's POIs).
     pub game_select: &'a NesCanvas,
-    /// Pi item 31: level select (owner's POI).
+    /// Pi 2026-11-01 item 31: level select (owner's POI).
     pub level_select: &'a NesCanvas,
-    /// Pi item 11: 1-player game (owner's POIs: NEXT, STATS).
+    /// Pi 2026-11-01 item 11: 1-player game (owner's POIs: NEXT, STATS).
     pub single: &'a NesCanvas,
-    /// v1 `game_versus`: two-player game.
+    /// Pi 2026-11-02 item 5: the splash (owner's POI).
+    pub title: &'a NesCanvas,
+    /// Pi 2026-11-02 item 33: handicap select (owner's POI).
+    pub handicap_select: &'a NesCanvas,
+    /// Pi 2026-11-02 item 34: music select (owner's POI).
+    pub music_select: &'a NesCanvas,
+    /// Pi 2026-11-02 item 36: two-player game (owner's POI: the right NEXT).
     pub double: &'a NesCanvas,
-    /// v1 `game_pause`.
-    pub pause: &'a NesCanvas,
-    /// v1 `game_over_solo`: GAME OVER in the left well.
+    /// Pi 2026-11-02 items 44 and 40: GAME OVER left and right (owner's POIs).
     pub over_left: &'a NesCanvas,
-    /// v1 `game_over_right`: GAME OVER in the right well.
     pub over_right: &'a NesCanvas,
-    /// v1 `game_bonus`: BONUS in the left well.
-    pub bonus_left: &'a NesCanvas,
-    /// v1 `bonus3`: BONUS in the right well.
-    pub bonus_right: &'a NesCanvas,
+    /// v1 `game_versus`, `game_over_solo`, `game_over_right`: the same elements at 1080p.
+    pub v1_double: &'a NesCanvas,
+    pub v1_over_left: &'a NesCanvas,
+    pub v1_over_right: &'a NesCanvas,
+    /// v1 `game_pause`, `game_bonus`, `bonus3`: not seen on the Pi yet.
+    pub v1_pause: &'a NesCanvas,
+    pub v1_bonus_left: &'a NesCanvas,
+    pub v1_bonus_right: &'a NesCanvas,
+}
+
+/// Probes for one element; it shows if any of them matches.
+struct Element(Vec<Probe>);
+
+impl Element {
+    fn shows(&self, c: &NesCanvas, max_mismatch: f32) -> bool {
+        self.0.iter().any(|p| p.mismatch(c, MAX_SHIFT) <= max_mismatch)
+    }
 }
 
 pub struct Tetris {
-    labels: Probe,
-    game_select: Probe,
-    level_select: Probe,
-    stats: Probe,
-    next_right: Probe,
-    pause: Probe,
-    over: [Probe; 2],
-    bonus: [Probe; 2],
+    labels: Element,
+    title: Element,
+    game_select: Element,
+    level_select: Element,
+    handicap_select: Element,
+    music_select: Element,
+    stats: Element,
+    next_right: Element,
+    pause: Element,
+    over: [Element; 2],
+    bonus: [Element; 2],
 }
 
-/// The arrow on game select: one row per mode, 8 lines apart.
+/// Arrows on the select screens: one row per option, 8 lines apart. Player 1's arrow points
+/// right, left of the list; player 2's points left, right of the list.
 const MODE_ARROW: Rect = Rect { x1: 78, y1: 128, x2: 90, y2: 136 };
-/// The arrow on level select: one row per level 0–9.
-const LEVEL_ARROW: Rect = Rect { x1: 100, y1: 96, x2: 114, y2: 104 };
+const P1_ARROW: Rect = Rect { x1: 100, y1: 96, x2: 114, y2: 104 };
+const P2_ARROW: Rect = Rect { x1: 130, y1: 96, x2: 146, y2: 104 };
 const MIN_ARROW: usize = 6;
 
 impl Tetris {
     pub fn new(r: &References) -> Tetris {
         let lit = |c: &NesCanvas, rect| Probe::capture(c, rect, Ink::Lit);
+        let one = |c: &NesCanvas, rect| Element(vec![lit(c, rect)]);
         let tetris = Tetris {
-            labels: lit(r.game_select, LABELS),
-            game_select: lit(r.game_select, Rect::new(78, 112, 166, 121)),
-            level_select: lit(r.level_select, Rect::new(78, 80, 174, 89)),
-            stats: lit(r.single, Rect::new(174, 48, 215, 57)),
-            next_right: lit(r.double, Rect::new(203, 15, 236, 23)),
-            pause: lit(r.pause, Rect::new(97, 63, 158, 79)),
+            labels: one(r.game_select, LABELS),
+            title: one(r.title, Rect::new(54, 72, 182, 81)),
+            game_select: one(r.game_select, Rect::new(78, 112, 166, 121)),
+            level_select: one(r.level_select, Rect::new(78, 80, 174, 89)),
+            handicap_select: one(r.handicap_select, Rect::new(70, 80, 192, 89)),
+            music_select: one(r.music_select, Rect::new(86, 80, 182, 89)),
+            stats: one(r.single, Rect::new(174, 48, 215, 57)),
+            next_right: Element(vec![
+                lit(r.double, Rect::new(210, 16, 241, 24)),
+                lit(r.v1_double, Rect::new(203, 15, 236, 23)),
+            ]),
+            pause: one(r.v1_pause, Rect::new(97, 63, 158, 79)),
             over: [
-                lit(r.over_left, Rect::new(37, 95, 82, 127)),
-                lit(r.over_right, Rect::new(173, 95, 218, 127)),
+                Element(vec![
+                    lit(r.over_left, Rect::new(31, 96, 80, 128)),
+                    lit(r.v1_over_left, Rect::new(37, 95, 82, 127)),
+                ]),
+                Element(vec![
+                    lit(r.over_right, Rect::new(175, 96, 224, 128)),
+                    lit(r.v1_over_right, Rect::new(173, 95, 218, 127)),
+                ]),
             ],
             bonus: [
-                lit(r.bonus_left, Rect::new(24, 62, 93, 78)),
-                lit(r.bonus_right, Rect::new(160, 62, 229, 78)),
+                one(r.v1_bonus_left, Rect::new(24, 62, 93, 78)),
+                one(r.v1_bonus_right, Rect::new(160, 62, 229, 78)),
             ],
         };
         // A probe of plain background would match any plain background.
@@ -81,33 +113,49 @@ impl Tetris {
     }
 
     fn probes(&self) -> impl Iterator<Item = &Probe> {
-        [
+        let single = [
             &self.labels,
+            &self.title,
             &self.game_select,
             &self.level_select,
+            &self.handicap_select,
+            &self.music_select,
             &self.stats,
             &self.next_right,
             &self.pause,
-        ]
-        .into_iter()
-        .chain(&self.over)
-        .chain(&self.bonus)
+        ];
+        single.into_iter().chain(&self.over).chain(&self.bonus).flat_map(|e| &e.0)
     }
 
-    fn shows(&self, probe: &Probe, c: &NesCanvas) -> bool {
-        probe.mismatch(c, MAX_SHIFT) <= MAX_MISMATCH
+    fn shows(&self, e: &Element, c: &NesCanvas) -> bool {
+        e.shows(c, MAX_MISMATCH)
     }
 
     pub fn observe_tetris(&self, c: &NesCanvas) -> TetrisObs {
+        if self.shows(&self.title, c) {
+            return TetrisObs::screen(TetrisScreen::Title);
+        }
         if self.shows(&self.game_select, c) {
             let mode = arrow_row(c, MODE_ARROW, TetrisMode::ALL.len()).map(|i| TetrisMode::ALL[i]);
             return TetrisObs { mode_cursor: mode, ..TetrisObs::screen(TetrisScreen::ModeSelect) };
         }
+        let arrows = |rows: usize| [P1_ARROW, P2_ARROW].map(|a| arrow_row(c, a, rows));
         if self.shows(&self.level_select, c) {
-            let level = arrow_row(c, LEVEL_ARROW, 10).map(|i| i as u8);
+            let level_cursor = arrows(10).map(|row| row.map(|i| i as u8));
+            return TetrisObs { level_cursor, ..TetrisObs::screen(TetrisScreen::LevelSelect) };
+        }
+        if self.shows(&self.handicap_select, c) {
+            let handicap_cursor = arrows(HANDICAPS.len()).map(|row| row.map(|i| HANDICAPS[i]));
             return TetrisObs {
-                level_cursor: level,
-                ..TetrisObs::screen(TetrisScreen::LevelSelect)
+                handicap_cursor,
+                ..TetrisObs::screen(TetrisScreen::HandicapSelect)
+            };
+        }
+        if self.shows(&self.music_select, c) {
+            let music = arrow_row(c, P1_ARROW, TetrisMusic::ALL.len()).map(|i| TetrisMusic::ALL[i]);
+            return TetrisObs {
+                music_cursor: music,
+                ..TetrisObs::screen(TetrisScreen::MusicSelect)
             };
         }
         let layout = if self.shows(&self.stats, c) {
@@ -136,7 +184,7 @@ impl GameRecognizer for Tetris {
     }
 
     fn claims(&self, c: &NesCanvas) -> bool {
-        self.labels.mismatch(c, MAX_SHIFT) <= LABELS_MAX_MISMATCH
+        self.labels.shows(c, LABELS_MAX_MISMATCH) || self.shows(&self.title, c)
     }
 
     fn observe(&self, c: &NesCanvas) -> GameObs {
