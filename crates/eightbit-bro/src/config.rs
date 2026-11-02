@@ -72,6 +72,14 @@ impl Default for Review {
 #[serde(deny_unknown_fields)]
 pub struct Web {
     pub listen: String,
+    /// Ask for the dashboard password. Off: open to anyone who can reach `listen` (keep it
+    /// on the LAN / Tailscale, PRD W8).
+    #[serde(default = "default_login")]
+    pub login: bool,
+}
+
+fn default_login() -> bool {
+    true
 }
 
 impl Config {

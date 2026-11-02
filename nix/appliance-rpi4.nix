@@ -14,6 +14,8 @@
     package = (pkgs.callPackage ./package.nix { }).overrideAttrs { doCheck = false; };
     # LAN and Tailscale only (PRD W8): the Pi sits behind the hackerspace NAT.
     openFirewall = true;
+    # No dashboard password (owner's choice, 2026-11-02): anyone on the LAN / tailnet.
+    settings.web.login = false;
     settings.input = {
       device = "/dev/v4l/by-id/usb-MACROSILICON_USB3._0_capture-video-index0";
       # The owner's choice (2026-11-02): the output video is 30 fps anyway (D1), and it halves

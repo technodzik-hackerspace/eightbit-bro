@@ -69,6 +69,7 @@ fn main() -> Result<()> {
         geometry: config.geometry,
         data_dir: config.data_dir.clone(),
         config_text,
+        login: web.login,
     };
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)

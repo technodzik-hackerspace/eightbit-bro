@@ -35,13 +35,15 @@ pub struct Secrets {
 }
 
 pub struct Auth {
+    /// Whether the dashboard asks for a password at all (`[web] login`).
+    login: bool,
     path: PathBuf,
     secrets: RwLock<Secrets>,
     sessions: Mutex<HashSet<String>>,
 }
 
 impl Auth {
-    pub fn load(data_dir: &Path) -> Result<Auth> {
+    pub fn load(data_dir: &Path, login: bool) -> Result<Auth> {
         let path = data_dir.join("secrets.json");
         let secrets = match fs::read_to_string(&path) {
             Ok(text) => serde_json::from_str(&text)
@@ -49,7 +51,7 @@ impl Auth {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Secrets::default(),
             Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
         };
-        Ok(Auth { path, secrets: RwLock::new(secrets), sessions: Mutex::default() })
+        Ok(Auth { login, path, secrets: RwLock::new(secrets), sessions: Mutex::default() })
     }
 
     fn is_set_up(&self) -> bool {
@@ -110,6 +112,9 @@ fn verify(password: &str, hash: &str) -> bool {
 
 /// Everything except the public routes: setup first, then a valid session.
 pub async fn guard(State(auth): State<Arc<Auth>>, req: Request, next: Next) -> Response {
+    if !auth.login {
+        return next.run(req).await;
+    }
     let api = req.uri().path().starts_with("/api/");
     if !auth.is_set_up() {
         return match api {
@@ -129,8 +134,9 @@ pub async fn guard(State(auth): State<Arc<Auth>>, req: Request, next: Next) -> R
 /// Routes reachable without a session.
 pub fn public(auth: Arc<Auth>) -> Router<Arc<Context>> {
     Router::new()
-        .route("/setup", get(pages::setup))
-        .route("/login", get(pages::login))
+        .route("/setup", get(setup_page))
+        .route("/login", get(login_page))
+        .route("/api/auth", get(auth_mode))
         .route("/static/{file}", get(pages::asset))
         .route("/api/setup", post(setup))
         .route("/api/login", post(login))
@@ -141,6 +147,26 @@ pub fn public(auth: Arc<Auth>) -> Router<Arc<Context>> {
 /// Secrets management, behind the guard.
 pub fn protected(auth: Arc<Auth>) -> Router<Arc<Context>> {
     Router::new().route("/api/secrets", get(secrets_status).post(replace_secrets)).with_state(auth)
+}
+
+/// The setup and login pages, or the dashboard when there is no login.
+async fn setup_page(State(auth): State<Arc<Auth>>) -> Response {
+    match auth.login {
+        true => pages::setup().await.into_response(),
+        false => Redirect::to("/").into_response(),
+    }
+}
+
+async fn login_page(State(auth): State<Arc<Auth>>) -> Response {
+    match auth.login {
+        true => pages::login().await.into_response(),
+        false => Redirect::to("/").into_response(),
+    }
+}
+
+/// Whether pages should offer login / logout.
+async fn auth_mode(State(auth): State<Arc<Auth>>) -> Json<serde_json::Value> {
+    Json(json!({ "login": auth.login }))
 }
 
 #[derive(Deserialize)]

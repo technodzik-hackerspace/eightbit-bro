@@ -13,7 +13,7 @@
         <div class="muted small">for <span id="since"></span> · source <code id="source"></code></div>
       </div>
       <div class="row" style="justify-content:space-between">
-        <h2>Preview <label class="small" style="display:inline;margin-left:8px"><input type="checkbox" id="pv" checked style="width:auto"> live (1 fps)</label></h2>
+        <h2>Preview <label class="small" style="display:inline;margin-left:8px"><input type="checkbox" id="pv" checked style="width:auto"> live (3 fps)</label></h2>
         <div class="row"><span class="err small" id="captureerr"></span><button id="capture">📸 Capture frame for review</button></div>
       </div>
       <img class="frame" id="preview" alt="no frame yet">
@@ -132,7 +132,7 @@ stream({
 refresh(); loadEvents(); tickPreview(); loadDeploy();
 setInterval(() => loadDeploy().catch(() => {}), 2000);
 setInterval(refresh, 2000);
-setInterval(tickPreview, 1000);
+setInterval(tickPreview, 333);
 setInterval(() => { $("since").textContent = ago(since); }, 500);
 </script>
 </body></html>

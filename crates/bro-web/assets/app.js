@@ -25,6 +25,9 @@ function nav(active) {
     links.map(([href, name]) => `<a href="${href}" class="${href === active ? "on" : ""}">${name}</a>`).join("") +
     `<span class="spacer"></span><a href="#" id="logout" class="muted small">Log out</a>`;
   document.body.prepend(el);
+  fetch("/api/auth").then((r) => r.json()).then((a) => {
+    if (!a.login) el.querySelector("#logout").hidden = true;
+  }).catch(() => {});
   el.querySelector("#logout").onclick = async (e) => {
     e.preventDefault();
     await api("/logout", { json: {} }).catch(() => {});

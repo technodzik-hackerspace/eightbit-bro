@@ -357,7 +357,7 @@ eightbit-bro without SSH.
 
 - **W1. Live.** The current console state tree (e.g. `InGame › Tetris › Playing › 2P versus,
   start level 9 › P1 12,283 / P2 2,680 (topped out)`), updated live. A **live preview** of the
-  latest captured frame at low rate (≈ 1–2 fps, downscaled), optionally with the recognized
+  latest captured frame at low rate (3 fps), optionally with the recognized
   regions drawn over it. Recording indicator (on/off, duration, frames, drop %).
 - **W2. Events.** The event log, live-tailing and searchable, filtered by level of the state
   tree, event type, session and time range. Clicking an event shows the frame it came from
@@ -393,7 +393,8 @@ NixOS stays the source of truth for the deployment; the dashboard must not fight
   recognition and encoding; with N browsers open, F1–F4 (§8.3) still hold. The preview uses
   frames that already exist; it never triggers extra decoding at full rate.
 - **W8. Access:** LAN/Tailscale only, behind a simple shared login (static password set on
-  the setup page). Not exposed to the internet.
+  the setup page), which can be switched off (`[web] login = false`; the Pi runs without it
+  since 2026-11-02). Not exposed to the internet.
 - **W9. Lightweight:** served by the same binary, no separate database or Node runtime on the
   Pi; works on a phone screen.
 - **W10. API first:** everything the UI shows comes from a documented HTTP/JSON (+ live

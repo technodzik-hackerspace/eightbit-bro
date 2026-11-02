@@ -26,11 +26,13 @@ pub struct Context {
     pub data_dir: PathBuf,
     /// The declarative config, shown read-only on the settings page.
     pub config_text: String,
+    /// Ask for a password (`[web] login`, default true).
+    pub login: bool,
 }
 
 pub async fn serve(listen: &str, ctx: Context) -> Result<()> {
     let ctx = Arc::new(ctx);
-    let auth = Arc::new(auth::Auth::load(&ctx.data_dir)?);
+    let auth = Arc::new(auth::Auth::load(&ctx.data_dir, ctx.login)?);
     live::spawn_rates(ctx.live.clone());
 
     let app = Router::new()
