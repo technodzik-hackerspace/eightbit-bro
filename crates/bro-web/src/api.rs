@@ -9,15 +9,15 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use bro_capture::FrameData;
-use bro_store::{Poi, Status};
+use bro_store::{Offer, Poi, Status};
 use bro_vision::{NesCanvas, Rect, optimize_poi};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
 
-use crate::Context;
 use crate::auth::error;
+use crate::{Context, Push};
 
 type Ctx = State<Arc<Context>>;
 
@@ -29,6 +29,7 @@ pub fn router() -> Router<Arc<Context>> {
         .route("/preview.jpg", get(preview))
         .route("/config", get(config))
         .route("/deploy", get(deploy))
+        .route("/capture", post(capture))
         .route("/review", get(review_list).delete(review_delete_all))
         .route("/review/{id}", get(review_get).patch(review_update).delete(review_delete))
         .route("/review/{id}/frame.jpg", get(review_frame))
@@ -114,6 +115,51 @@ async fn preview(State(ctx): Ctx) -> Response {
     };
     ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "no-store")], bytes.to_vec())
         .into_response()
+}
+
+/// Saves the newest captured frame to the review queue, so the owner can annotate it.
+async fn capture(State(ctx): Ctx) -> ApiResult {
+    let Some(frame) = ctx.live.ring.as_ref().and_then(|r| r.latest()) else {
+        return Ok(error(StatusCode::NOT_FOUND, "no frame captured yet"));
+    };
+    let state = ctx.live.state().0.path();
+    let store = ctx.store.clone();
+    let geometry = ctx.geometry;
+    let offer = tokio::task::spawn_blocking(move || -> anyhow::Result<Option<Offer>> {
+        let img = frame.decode()?;
+        if !geometry.fits(img.width(), img.height()) {
+            return Ok(None);
+        }
+        let canvas = NesCanvas::sample(&img, &geometry);
+        let jpeg = match &frame.data {
+            FrameData::Jpeg(bytes) => bytes.to_vec(),
+            FrameData::Png(_) => encode(&img, image::ImageFormat::Jpeg)?,
+        };
+        let offer = store.review_capture(canvas.dhash(), frame.no, &state, &jpeg, || {
+            encode(&canvas.to_image(), image::ImageFormat::Png)
+        })?;
+        Ok(Some(offer))
+    })
+    .await??;
+    match offer {
+        Some(Offer::New(id)) => {
+            ctx.live.push(Push::Review { id });
+            Ok(Json(json!({ "id": id })).into_response())
+        }
+        Some(_) => Ok(error(
+            StatusCode::CONFLICT,
+            "the review queue is full of unreviewed screens: review or delete some first",
+        )),
+        None => {
+            Ok(error(StatusCode::UNPROCESSABLE_ENTITY, "the frame is smaller than the picture"))
+        }
+    }
+}
+
+fn encode(img: &image::RgbImage, format: image::ImageFormat) -> anyhow::Result<Vec<u8>> {
+    let mut out = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut out, format)?;
+    Ok(out.into_inner())
 }
 
 /// The last deploy's progress, written onto the device by `deploy/deploy.py`.

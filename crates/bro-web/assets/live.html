@@ -12,7 +12,10 @@
         <div class="state" id="path">…</div>
         <div class="muted small">for <span id="since"></span> · source <code id="source"></code></div>
       </div>
-      <h2>Preview <label class="small" style="display:inline;margin-left:8px"><input type="checkbox" id="pv" checked style="width:auto"> live (1 fps)</label></h2>
+      <div class="row" style="justify-content:space-between">
+        <h2>Preview <label class="small" style="display:inline;margin-left:8px"><input type="checkbox" id="pv" checked style="width:auto"> live (1 fps)</label></h2>
+        <div class="row"><span class="err small" id="captureerr"></span><button id="capture">📸 Capture frame for review</button></div>
+      </div>
       <img class="frame" id="preview" alt="no frame yet">
     </div>
     <div>
@@ -75,6 +78,18 @@ async function loadEvents() {
   events.forEach((e) => addEvent(e, false));
   if (!events.length) $("events").innerHTML = `<div class="muted">No events yet.</div>`;
 }
+
+$("capture").onclick = async () => {
+  $("capture").disabled = true;
+  $("captureerr").textContent = "";
+  try {
+    const { id } = await api("/capture", { json: {} });
+    location.href = `/review/${id}`;
+  } catch (e) {
+    $("captureerr").textContent = e.message;
+    $("capture").disabled = false;
+  }
+};
 
 function tickPreview() {
   if ($("pv").checked && !document.hidden) $("preview").src = `/api/preview.jpg?t=${Date.now()}`;

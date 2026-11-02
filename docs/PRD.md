@@ -247,6 +247,9 @@ fixtures, registered in one place. No changes to the capture, recording, or even
   **optimize** the region (trim it to what is actually drawn inside it and align it to the
   console's 8×8 tiles) so the resulting check is small and fast; the dashboard shows both the
   drawn and the optimized rectangle. The agent turns each POI into a recognizer probe.
+- **L4b. Capture on demand.** The Live page has a button that saves the current frame to the
+  review queue (even if a similar screen is queued) and opens it for POIs and notes: for
+  screens that are recognized, or wrongly recognized, but worth explaining.
 - **L5.** The running system never changes its own recognition behavior (keeps R2).
 - **L6.** Queued frames (and recorded sessions' raw frames, when kept) can be downloaded as an
   archive from the dashboard (replaces v1's "download the last game" scripts).

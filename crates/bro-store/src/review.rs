@@ -8,7 +8,7 @@ use bro_vision::{Rect, hamming};
 use rusqlite::{Connection, OptionalExtension, Row, params};
 use serde::{Deserialize, Serialize};
 
-use crate::{Store, now_ms};
+use crate::{Inner, Store, now_ms};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ReviewConfig {
@@ -162,7 +162,37 @@ impl Store {
             return Ok(Offer::Duplicate(e.id));
         }
 
-        if inner.review.entries.len() >= cfg.max_items {
+        self.insert(inner, phash, frame_no, state, "", jpeg, canvas_png)
+    }
+
+    /// Saves a frame the owner asked for (the dashboard's "capture"), even when a similar
+    /// screen is queued already. Like new screens, it may evict the oldest reviewed item;
+    /// `Full` when every item is still unreviewed.
+    pub fn review_capture(
+        &self,
+        phash: u64,
+        frame_no: u64,
+        state: &str,
+        jpeg: &[u8],
+        canvas_png: impl FnOnce() -> Result<Vec<u8>>,
+    ) -> Result<Offer> {
+        let mut guard = self.lock();
+        self.insert(&mut guard, phash, frame_no, state, "captured from Live", jpeg, canvas_png)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn insert(
+        &self,
+        inner: &mut Inner,
+        phash: u64,
+        frame_no: u64,
+        state: &str,
+        note: &str,
+        jpeg: &[u8],
+        canvas_png: impl FnOnce() -> Result<Vec<u8>>,
+    ) -> Result<Offer> {
+        let now = now_ms();
+        if inner.review.entries.len() >= inner.review.cfg.max_items {
             match inner.review.entries.iter().find(|e| e.evictable).map(|e| e.id) {
                 Some(oldest) => {
                     delete_item(&inner.db, &mut inner.review, &self.review_dir(), oldest)?
@@ -175,9 +205,9 @@ impl Store {
         }
 
         inner.db.execute(
-            "INSERT INTO review_items (first_seen, last_seen, count, phash, frame_no, state)
-             VALUES (?1, ?1, 1, ?2, ?3, ?4)",
-            params![now, phash as i64, frame_no as i64, state],
+            "INSERT INTO review_items (first_seen, last_seen, count, phash, frame_no, state, note)
+             VALUES (?1, ?1, 1, ?2, ?3, ?4, ?5)",
+            params![now, phash as i64, frame_no as i64, state, note],
         )?;
         let id = inner.db.last_insert_rowid();
         let dir = self.review_dir();
@@ -446,6 +476,23 @@ mod tests {
         assert!(store.pois(id).unwrap().is_empty());
         assert!(fs::read_dir(dir.join("review")).unwrap().next().is_none());
         assert!(matches!(offer(&store, 0xFFFF_FFFF), Offer::New(_)), "room again");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn capture_saves_even_a_known_screen() {
+        let (store, dir) = temp_store(ReviewConfig { max_items: 2, ..Default::default() });
+        let Offer::New(first) = offer(&store, 0) else { panic!() };
+        let captured =
+            store.review_capture(0, 9, "Menu/p1/c0", b"jpeg", || Ok(b"png".to_vec())).unwrap();
+        let Offer::New(id) = captured else { panic!("{captured:?}") };
+        assert_ne!(id, first);
+        assert_eq!(store.review_item(id).unwrap().unwrap().note, "captured from Live");
+        assert_eq!(
+            store.review_capture(1, 9, "x", b"jpeg", || Ok(b"png".to_vec())).unwrap(),
+            Offer::Full,
+            "full of unreviewed items"
+        );
         fs::remove_dir_all(dir).unwrap();
     }
 }
