@@ -33,3 +33,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [profile.release]
 lto = "thin"
+
+# Dev builds for the Pi (deploy/deploy.py --dev): optimized like release, but incremental
+# and without LTO, so a change rebuilds in a minute or two under emulation.
+[profile.pi-dev]
+inherits = "release"
+lto = false
+incremental = true
+codegen-units = 16

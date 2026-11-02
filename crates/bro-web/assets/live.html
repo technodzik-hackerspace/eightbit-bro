@@ -110,7 +110,7 @@ async function loadDeploy() {
     const pct = d.total ? Math.min(100, Math.round(100 * d.compiled / d.total)) : null;
     const stale = now - d.updated > 30000 ? ` · <span style="color:var(--warn)">no update for ${duration(now - d.updated)}</span>` : "";
     el.style.borderColor = "var(--accent)";
-    el.innerHTML = `<b>Deploying</b> ${what}<br>
+    el.innerHTML = `<b>${d.kind === "dev" ? "Dev push" : "Deploying"}</b> ${what}<br>
       <span class="small">${esc(d.phase)}${d.phase === "building" ? ` · ${d.compiled}${d.total ? ` / ~${d.total}` : ""} crates` : ""}
       · ${duration(now - d.started)} elapsed${stale}</span>
       <div class="bar"><div style="width:${d.phase === "activating" || d.phase === "copying to the Pi" ? 100 : pct ?? 5}%"></div></div>
@@ -118,7 +118,7 @@ async function loadDeploy() {
   } else {
     const ok = d.result === "ok";
     el.style.borderColor = ok ? "var(--line)" : "var(--bad)";
-    el.innerHTML = `<span class="small">Last deploy ${ok ? "✓" : `<b style="color:var(--bad)">${esc(d.result)}</b>`}: ${what}
+    el.innerHTML = `<span class="small">Last ${d.kind === "dev" ? "dev push" : "deploy"} ${ok ? "✓" : `<b style="color:var(--bad)">${esc(d.result)}</b>`}: ${what}
       · ${when(d.finished)} · took ${duration(d.finished - d.started)} · by ${esc(d.by)}</span>
       ${ok ? "" : `<div class="muted small"><code>${esc(d.last_line)}</code></div>`}`;
   }

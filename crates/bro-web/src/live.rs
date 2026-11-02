@@ -142,15 +142,17 @@ pub fn spawn_rates(live: Arc<Live>) {
     });
 }
 
-/// The hash part of the binary's Nix store path, or "dev" outside the store.
+/// The hash part of the binary's Nix store path; outside the store (a dev push), "dev-" and
+/// the binary's modification time, so each push shows up too.
 fn build_id() -> String {
-    std::env::current_exe()
-        .ok()
-        .and_then(|exe| {
-            let name = exe.strip_prefix("/nix/store").ok()?.iter().next()?.to_str()?.to_owned();
-            Some(name.split('-').next()?.chars().take(8).collect())
-        })
-        .unwrap_or_else(|| "dev".into())
+    let Ok(exe) = std::env::current_exe() else { return "dev".into() };
+    if let Some(name) = exe.strip_prefix("/nix/store").ok().and_then(|p| p.iter().next()) {
+        return name.to_string_lossy().chars().take(8).collect();
+    }
+    let modified = fs::metadata(&exe).and_then(|m| m.modified()).ok();
+    let secs =
+        modified.and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs());
+    secs.map_or("dev".into(), |s| format!("dev-{:06x}", s & 0xff_ffff))
 }
 
 fn read(path: &str) -> Option<String> {
