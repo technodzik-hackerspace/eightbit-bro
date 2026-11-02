@@ -240,3 +240,87 @@ file = "125.jpg"
 seen = "dr mario"
 game_screen = "Playing 2P"
 flags = ["P2 over"]
+
+# Owner's captures, 2026-11-02 evening: Tetris P2 bonus while P1 is over, 1P, cooperative;
+# Dr. Mario on the purple background and its STAGE CLEAR.
+[[frame]]
+file = "135.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+game_over = [true, false]
+bonus = [false, true]
+
+[[frame]]
+file = "136.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Double"
+game_over = [true, false]
+bonus = [false, true]
+
+[[frame]]
+file = "152.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Single"
+bonus = [true, false]
+
+[[frame]]
+file = "153.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Single"
+game_over = [false, false]
+bonus = [false, false]
+
+[[frame]]
+file = "154.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Single"
+game_over = [true, false]
+
+[[frame]]
+file = "155.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Coop"
+game_over = [false, false]
+
+[[frame]]
+file = "156.jpg"
+seen = "tetris"
+screen = "Playing"
+layout = "Coop"
+game_over = [true, true]
+
+[[frame]]
+file = "147.jpg"
+seen = "dr mario"
+game_screen = "Playing 1P"
+flags = []
+
+[[frame]]
+file = "148.jpg"
+seen = "dr mario"
+game_screen = "Playing 1P"
+flags = []
+
+[[frame]]
+file = "149.jpg"
+seen = "dr mario"
+game_screen = "Playing 1P"
+flags = ["stage clear"]
+
+[[frame]]
+file = "150.jpg"
+seen = "dr mario"
+game_screen = "Playing 1P"
+flags = ["stage clear"]
+
+[[frame]]
+file = "151.jpg"
+seen = "dr mario"
+game_screen = "Playing 1P"
+flags = []

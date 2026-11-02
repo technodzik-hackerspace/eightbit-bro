@@ -32,9 +32,14 @@ pub struct References<'a> {
     pub music_select: &'a NesCanvas,
     /// Pi 2026-11-02 item 36: two-player game (owner's POI: the right NEXT).
     pub double: &'a NesCanvas,
-    /// Pi 2026-11-02 item 133: paused; item 134: BONUS on both sides (owner's captures).
+    /// Pi 2026-11-02 item 133: paused; item 134: BONUS on both sides; item 135: BONUS on the
+    /// right with P1 game over (owner's captures).
     pub pause: &'a NesCanvas,
     pub bonus: &'a NesCanvas,
+    pub bonus_right: &'a NesCanvas,
+    /// Pi 2026-11-02 items 155, 156: cooperative game; its GAME OVER (owner's captures).
+    pub coop: &'a NesCanvas,
+    pub coop_over: &'a NesCanvas,
     /// Pi 2026-11-02 items 44 and 40: GAME OVER left and right (owner's POIs).
     pub over_left: &'a NesCanvas,
     pub over_right: &'a NesCanvas,
@@ -66,6 +71,8 @@ pub struct Tetris {
     music_select: Element,
     stats: Element,
     next_right: Element,
+    coop: Element,
+    coop_over: Element,
     pause: Element,
     over: [Element; 2],
     bonus: [Element; 2],
@@ -95,6 +102,9 @@ impl Tetris {
                 lit(r.v1_double, Rect::new(203, 15, 236, 23)),
             ]),
             // The live capture draws these ~6 px left of v1's: both references count.
+            // Solid walls across the full width with an empty middle: only the shared well.
+            coop: one(r.coop, Rect::new(60, 64, 190, 80)),
+            coop_over: one(r.coop_over, Rect::new(95, 98, 135, 126)),
             pause: Element(vec![
                 lit(r.pause, Rect::new(97, 63, 158, 80)),
                 lit(r.v1_pause, Rect::new(97, 63, 158, 79)),
@@ -116,6 +126,7 @@ impl Tetris {
                 ]),
                 Element(vec![
                     lit(r.bonus, Rect::new(159, 63, 233, 79)),
+                    lit(r.bonus_right, Rect::new(159, 63, 233, 79)),
                     lit(r.v1_bonus_right, Rect::new(160, 62, 229, 78)),
                 ]),
             ],
@@ -135,6 +146,8 @@ impl Tetris {
             &self.music_select,
             &self.stats,
             &self.next_right,
+            &self.coop,
+            &self.coop_over,
             &self.pause,
         ];
         single.into_iter().chain(&self.over).chain(&self.bonus).flat_map(|e| &e.0)
@@ -173,6 +186,8 @@ impl Tetris {
         }
         let layout = if self.shows(&self.stats, c) {
             Some(Layout::Single)
+        } else if self.shows(&self.coop, c) {
+            Some(Layout::Coop)
         } else if self.shows(&self.next_right, c) {
             Some(Layout::Double)
         } else {
@@ -184,7 +199,11 @@ impl Tetris {
         TetrisObs {
             layout,
             paused: self.shows(&self.pause, c),
-            game_over: [0, 1].map(|i| self.shows(&self.over[i], c)),
+            // In coop both players share the well: its GAME OVER is both players'.
+            game_over: match layout {
+                Some(Layout::Coop) => [self.shows(&self.coop_over, c); 2],
+                _ => [0, 1].map(|i| self.shows(&self.over[i], c)),
+            },
             bonus: [0, 1].map(|i| self.shows(&self.bonus[i], c)),
             ..TetrisObs::screen(TetrisScreen::Playing)
         }

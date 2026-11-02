@@ -73,11 +73,13 @@ impl TetrisMusic {
 /// Handicap values on the handicap select screen, top to bottom.
 pub const HANDICAPS: [u8; 5] = [0, 3, 6, 9, 12];
 
-/// The playfield layout: one well with STATS, or two wells.
+/// The playfield layout: one well with STATS, two wells, or one shared wide well
+/// (cooperative).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Layout {
     Single,
     Double,
+    Coop,
 }
 
 /// One Tetris frame, without history.
@@ -189,6 +191,7 @@ impl TetrisState {
                 parts.extend(self.layout.map(|l| match l {
                     Layout::Single => "1P".to_owned(),
                     Layout::Double => "2P".to_owned(),
+                    Layout::Coop => "coop".to_owned(),
                 }));
                 parts.extend(self.session.map(|s| format!("{s:?}").to_lowercase()));
                 parts.extend(per_player("L", self.start_level));

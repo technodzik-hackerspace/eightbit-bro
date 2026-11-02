@@ -123,8 +123,9 @@ pub struct DrMarioRefs<'a> {
     pub settings: &'a NesCanvas,
     /// Item 110: a 1-player game.
     pub single: &'a NesCanvas,
-    /// Item 114: a 1-player game lost.
+    /// Item 114: a 1-player game lost; item 149: STAGE CLEAR / TRY NEXT.
     pub single_over: &'a NesCanvas,
+    pub stage_clear: &'a NesCanvas,
     /// Items 120, 122, 125: a 2-player game; P1 game over; P2 game over.
     pub double: &'a NesCanvas,
     pub p1_over: &'a NesCanvas,
@@ -149,12 +150,16 @@ pub fn dr_mario(r: &DrMarioRefs) -> ScreenTable {
             },
             Screen {
                 name: "Playing 1P",
+                // The TOP / SCORE and LEVEL / SPEED / VIRUS boards, bright: the checkerboard
+                // behind them changes colour (grey, purple) with level and speed.
                 all: vec![
-                    // The TOP / SCORE clipboard: bright, unlike the checkerboard behind it.
                     Check::new(r.single, Rect::new(24, 24, 88, 72), Ink::Bright, 0.1),
-                    lit(r.single, Rect::new(88, 208, 168, 240)),
+                    Check::new(r.single, Rect::new(166, 104, 236, 196), Ink::Bright, 0.1),
                 ],
-                flags: vec![("game over", lit(r.single_over, Rect::new(96, 96, 160, 152)))],
+                flags: vec![
+                    ("game over", lit(r.single_over, Rect::new(96, 96, 160, 152))),
+                    ("stage clear", lit(r.stage_clear, Rect::new(96, 96, 160, 152))),
+                ],
             },
             Screen {
                 name: "Playing 2P",
