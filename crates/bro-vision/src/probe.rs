@@ -10,6 +10,8 @@ pub enum Ink {
     /// Any channel above 100: anything on a black background (Tetris), including red and
     /// dim blue text.
     Lit,
+    /// Battle City's dark grey (63, 63, 63) ±22, neutral: its frame, the eagle, the flag.
+    Grey,
 }
 
 impl Ink {
@@ -17,6 +19,11 @@ impl Ink {
         match self {
             Ink::Bright => c.bright_at(x, y),
             Ink::Lit => c.rgb_at(x, y).iter().any(|&v| v > 100),
+            Ink::Grey => {
+                let px = c.rgb_at(x, y);
+                let (lo, hi) = (*px.iter().min().unwrap(), *px.iter().max().unwrap());
+                lo >= 41 && hi <= 85 && hi - lo < 16
+            }
         }
     }
 }

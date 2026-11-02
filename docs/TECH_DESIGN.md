@@ -250,6 +250,21 @@ The agent reads the annotations through the API (`GET /api/review/{id}`: frame J
 PNG, POIs, comments) and turns each optimized POI into a `Probe`: the bright mask inside it,
 cut from a reference fixture, with a capped share of differing pixels (R1).
 
+### 3.6b Screen tables (Battle City, Dr. Mario)
+
+Games without a dedicated module are a **table of screens** (`bro-games/src/screens.rs`):
+each screen is one or more probes that must all match, plus flags checked on that screen;
+the game is claimed by identity probes or any screen. The state is the last known screen and
+its flags (`InGame/DrMario/Playing 2P/P1 over`); an unknown screen keeps it and goes to the
+review queue. Adding a game or a screen is a few rows, from the owner's POIs.
+
+- **Battle City:** Title (settled; it scrolls up first), Score, Playing / Base destroyed. The
+  game is identified by the dark grey frame around the playfield (a `Grey` ink: (63,63,63)
+  ±22), and the eagle at the bottom tells playing from lost by its grey shape.
+- **Dr. Mario:** Menu, Settings, Playing 1P (TOP/SCORE clipboard, bright, so the coloured
+  checkerboard doesn't count, plus the bottle) with "game over", Playing 2P with "P1 over" /
+  "P2 over". Its PAUSE screens are black frames.
+
 ### 3.7 Tetris module
 
 Status: screens and flags done; scores/lines/level OCR and the title screen not yet.

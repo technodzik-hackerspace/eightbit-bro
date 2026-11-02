@@ -10,5 +10,7 @@ pub mod tetris;
 mod title;
 
 pub use reduce::{Event, EventKind, reduce};
-pub use state::{ConsoleState, GameDetail, GameId, GameObs, MenuState, Observation, Seen};
+pub use state::{
+    ConsoleState, GameDetail, GameId, GameObs, MenuState, Observation, ScreenObs, Seen,
+};
 pub use title::{TITLES, Title};

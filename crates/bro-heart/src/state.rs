@@ -5,6 +5,14 @@ use serde::{Deserialize, Serialize};
 use crate::Title;
 use crate::tetris::{TetrisObs, TetrisState};
 
+/// What a screen-table recognizer saw: a named screen (`None` when the game is recognized but
+/// the screen isn't) and named flags, e.g. `Playing 2P` with `P1 over`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScreenObs {
+    pub screen: Option<String>,
+    pub flags: Vec<String>,
+}
+
 /// Games with a recognizer. Everything else the console runs is `Other`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum GameId {
@@ -38,6 +46,8 @@ pub struct MenuState {
 pub enum GameDetail {
     None,
     Tetris(TetrisState),
+    /// The last known screen and its flags (games recognized by a screen table).
+    Screen(ScreenObs),
 }
 
 /// What a game recognizer saw in one frame, beyond "this is the game".
@@ -45,6 +55,7 @@ pub enum GameDetail {
 pub enum GameObs {
     None,
     Tetris(TetrisObs),
+    Screen(ScreenObs),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,6 +84,11 @@ impl ConsoleState {
                 if !t.path().is_empty() =>
             {
                 format!("InGame/{game}/{}", t.path())
+            }
+            ConsoleState::InGame { game, detail: GameDetail::Screen(s), .. } => {
+                let mut parts = vec![format!("InGame/{game}")];
+                parts.extend(s.screen.iter().chain(&s.flags).cloned());
+                parts.join("/")
             }
             ConsoleState::InGame { game, .. } => format!("InGame/{game}"),
         }
@@ -110,6 +126,7 @@ impl Seen {
                     _,
                     GameObs::Tetris(TetrisObs { screen: crate::tetris::TetrisScreen::Unknown, .. })
                 )
+                | Seen::Game(_, GameObs::Screen(ScreenObs { screen: None, .. }))
         )
     }
 }

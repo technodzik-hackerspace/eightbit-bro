@@ -60,6 +60,11 @@ fn enter_game(prev: &ConsoleState, game: GameId, obs: &GameObs) -> ConsoleState 
             };
             GameDetail::Tetris(tetris::reduce(prev, o, cold))
         }
+        // An unknown screen keeps the last known one (R4).
+        GameObs::Screen(o) if o.screen.is_none() => {
+            prev_detail.cloned().unwrap_or(GameDetail::None)
+        }
+        GameObs::Screen(o) => GameDetail::Screen(o.clone()),
     };
     ConsoleState::InGame { game, detail, menu_selection }
 }
@@ -188,5 +193,23 @@ mod tests {
         );
         let (s, _) = step(&s, Seen::Unrecognized);
         assert_eq!(s.path(), "InGame/Tetris/ModeSelect/1P", "unknown frames keep the state");
+    }
+
+    #[test]
+    fn screen_table_games_keep_the_last_known_screen() {
+        let screen = |s: Option<&str>, flags: &[&str]| {
+            Seen::Game(
+                GameId::DrMario,
+                GameObs::Screen(crate::ScreenObs {
+                    screen: s.map(str::to_owned),
+                    flags: flags.iter().map(|f| f.to_string()).collect(),
+                }),
+            )
+        };
+        let (s, _) = step(&ConsoleState::NoSignal, screen(Some("Playing 2P"), &["P1 over"]));
+        assert_eq!(s.path(), "InGame/DrMario/Playing 2P/P1 over");
+        let unknown = screen(None, &[]);
+        assert!(unknown.needs_review());
+        assert_eq!(step(&s, unknown).0.path(), "InGame/DrMario/Playing 2P/P1 over");
     }
 }

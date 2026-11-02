@@ -4,6 +4,7 @@
 
 mod font;
 mod menu;
+mod screens;
 mod tetris;
 
 use anyhow::{Result, bail};
@@ -12,6 +13,7 @@ use bro_heart::{GameId, GameObs, MenuState, Seen};
 use bro_vision::{Geometry, NesCanvas};
 
 pub use menu::{Menu, MenuRead, MenuRow};
+pub use screens::{BattleCityRefs, DrMarioRefs, ScreenTable, battle_city, dr_mario};
 pub use tetris::{References, Tetris};
 
 pub trait GameRecognizer: Send + Sync {
@@ -104,7 +106,24 @@ impl Perception {
             v1_bonus_left: &reference(v1!("game_bonus"), &V1_1080P)?,
             v1_bonus_right: &reference(v1!("bonus3"), &V1_1080P)?,
         });
-        Ok(Perception::with_games(geometry, menu, vec![Box::new(tetris)]))
+        let battle_city = battle_city(&BattleCityRefs {
+            title: &reference(pi2!("46"), &pi)?,
+            playing: &reference(pi2!("60"), &pi)?,
+            lost: &reference(pi2!("95"), &pi)?,
+            score: &reference(pi2!("101"), &pi)?,
+        });
+        let dr_mario = dr_mario(&DrMarioRefs {
+            menu: &reference(pi2!("103"), &pi)?,
+            settings: &reference(pi2!("106"), &pi)?,
+            single: &reference(pi2!("110"), &pi)?,
+            single_over: &reference(pi2!("114"), &pi)?,
+            double: &reference(pi2!("120"), &pi)?,
+            p1_over: &reference(pi2!("122"), &pi)?,
+            p2_over: &reference(pi2!("125"), &pi)?,
+        });
+        let games: Vec<Box<dyn GameRecognizer>> =
+            vec![Box::new(tetris), Box::new(battle_city), Box::new(dr_mario)];
+        Ok(Perception::with_games(geometry, menu, games))
     }
 
     pub fn with_games(geometry: Geometry, menu: Menu, games: Vec<Box<dyn GameRecognizer>>) -> Self {
@@ -219,6 +238,9 @@ mod tests {
         level: Option<[i16; 2]>,
         handicap: Option<[i16; 2]>,
         music: Option<TetrisMusic>,
+        // Screen-table games: the screen name ("?" for recognized but unknown) and flags.
+        game_screen: Option<String>,
+        flags: Option<Vec<String>>,
         paused: Option<bool>,
         bonus: Option<[bool; 2]>,
         game_over: Option<[bool; 2]>,
@@ -256,6 +278,8 @@ mod tests {
                 Seen::Black => "black",
                 Seen::Menu(_) => "menu",
                 Seen::Game(GameId::Tetris, _) => "tetris",
+                Seen::Game(GameId::BattleCity, _) => "battle city",
+                Seen::Game(GameId::DrMario, _) => "dr mario",
                 Seen::Game(..) => "other game",
                 Seen::Unrecognized => "unrecognized",
                 Seen::SignalLost => "signal lost",
@@ -270,6 +294,11 @@ mod tests {
                     check(&mut failures, file, &format!("row {i}"), got, Some(want_row));
                 }
                 check(&mut failures, file, "cursor", read.cursor, Some(want.cursor));
+            }
+            if let Seen::Game(_, GameObs::Screen(o)) = &sight.seen {
+                let screen = o.screen.clone().unwrap_or_else(|| "?".into());
+                check(&mut failures, file, "game screen", screen, want.game_screen.clone());
+                check(&mut failures, file, "flags", o.flags.clone(), want.flags.clone());
             }
             if let Seen::Game(_, GameObs::Tetris(t)) = &sight.seen {
                 check(&mut failures, file, "screen", t.screen, want.screen);
@@ -309,6 +338,42 @@ mod tests {
     #[test]
     fn v1_frames() {
         check_fixtures("v1-1080p", V1_1080P);
+    }
+
+    /// On every fixture frame at most one recognizer claims the frame (tech design §3.4).
+    #[test]
+    fn no_frame_is_claimed_twice() {
+        let mut decoder = Decoder::new().unwrap();
+        let mut failures = Vec::new();
+        for (folder, geometry) in [
+            ("pi-2026-11-01", Geometry::MS2109_720P),
+            ("pi-2026-11-02", Geometry::MS2109_720P),
+            ("v1-1080p", V1_1080P),
+        ] {
+            let perception = Perception::new(geometry).unwrap();
+            let mut files: Vec<_> = std::fs::read_dir(Path::new(FIXTURES).join(folder))
+                .unwrap()
+                .map(|e| e.unwrap().path())
+                .filter(|p| p.extension().is_some_and(|e| e == "jpg"))
+                .collect();
+            files.sort();
+            for path in files {
+                let canvas = half_canvas(&mut decoder, &geometry, &frame(&path)).unwrap();
+                let mut claims: Vec<String> = perception
+                    .games
+                    .iter()
+                    .filter(|g| g.claims(&canvas))
+                    .map(|g| g.id().to_string())
+                    .collect();
+                if perception.menu.claims(&canvas) {
+                    claims.push("Menu".into());
+                }
+                if claims.len() > 1 {
+                    failures.push(format!("{}: {claims:?}", path.display()));
+                }
+            }
+        }
+        assert!(failures.is_empty(), "{}", failures.join("\n"));
     }
 
     #[test]

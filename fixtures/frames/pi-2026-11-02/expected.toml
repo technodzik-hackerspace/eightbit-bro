@@ -103,3 +103,124 @@ screen = "Playing"
 layout = "Double"
 paused = false
 game_over = [true, false]
+
+# Battle City (owner's POIs: title, game, base destroyed, score screen).
+[[frame]]
+file = "45.jpg"
+seen = "unrecognized"  # the title while it scrolls up
+
+[[frame]]
+file = "46.jpg"
+seen = "battle city"
+game_screen = "Title"
+
+[[frame]]
+file = "50.jpg"
+seen = "battle city"
+game_screen = "?"  # the STAGE 1 curtain: no POI yet
+
+[[frame]]
+file = "54.jpg"
+seen = "battle city"
+game_screen = "Playing"
+
+[[frame]]
+file = "60.jpg"
+seen = "battle city"
+game_screen = "Playing"
+
+[[frame]]
+file = "89.jpg"
+seen = "battle city"
+game_screen = "Playing"
+
+[[frame]]
+file = "94.jpg"
+seen = "battle city"
+game_screen = "?"  # a tank on the base
+
+[[frame]]
+file = "95.jpg"
+seen = "battle city"
+game_screen = "Base destroyed"
+
+[[frame]]
+file = "100.jpg"
+seen = "battle city"
+game_screen = "Base destroyed"
+
+[[frame]]
+file = "101.jpg"
+seen = "battle city"
+game_screen = "Score"
+
+# Dr. Mario (owner's POIs: menu, settings, 1P game, 1P lost, 2P game, P1 / P2 game over).
+[[frame]]
+file = "102.jpg"
+seen = "dr mario"
+game_screen = "Menu"
+
+[[frame]]
+file = "103.jpg"
+seen = "dr mario"
+game_screen = "Menu"
+
+[[frame]]
+file = "105.jpg"
+seen = "dr mario"
+game_screen = "Settings"
+
+[[frame]]
+file = "106.jpg"
+seen = "dr mario"
+game_screen = "Settings"
+
+[[frame]]
+file = "110.jpg"
+seen = "dr mario"
+game_screen = "Playing 1P"
+flags = []
+
+[[frame]]
+file = "113.jpg"
+seen = "dr mario"
+game_screen = "Playing 1P"
+flags = []
+
+[[frame]]
+file = "114.jpg"
+seen = "dr mario"
+game_screen = "Playing 1P"
+flags = ["game over"]
+
+[[frame]]
+file = "115.jpg"
+seen = "black"  # PAUSE on black
+
+[[frame]]
+file = "119.jpg"
+seen = "dr mario"
+game_screen = "Playing 2P"
+flags = []
+
+[[frame]]
+file = "120.jpg"
+seen = "dr mario"
+game_screen = "Playing 2P"
+flags = []
+
+[[frame]]
+file = "121.jpg"
+seen = "black"  # PAUSE on black
+
+[[frame]]
+file = "122.jpg"
+seen = "dr mario"
+game_screen = "Playing 2P"
+flags = ["P1 over"]
+
+[[frame]]
+file = "125.jpg"
+seen = "dr mario"
+game_screen = "Playing 2P"
+flags = ["P2 over"]
