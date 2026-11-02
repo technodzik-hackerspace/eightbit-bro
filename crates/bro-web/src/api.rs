@@ -240,7 +240,8 @@ async fn review_canvas(State(ctx): Ctx, Path(id): Path<i64>) -> Response {
 fn file(ctx: &Context, id: i64, ext: &str, mime: &'static str) -> Response {
     match fs::read(ctx.store.review_dir().join(format!("{id}.{ext}"))) {
         Ok(bytes) => {
-            ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "max-age=3600")], bytes)
+            // The pages add ?v=<first_seen>; revalidate anyway (ids used to be reused).
+            ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "no-cache")], bytes)
                 .into_response()
         }
         Err(_) => error(StatusCode::NOT_FOUND, "no such frame"),

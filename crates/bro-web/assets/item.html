@@ -62,8 +62,7 @@ const $ = (x) => document.getElementById(x);
 const img = $("img"), ov = $("ov"), ctx = ov.getContext("2d");
 let pois = [], pending = null, drag = null, hover = null;
 
-img.src = `/api/review/${id}/frame.jpg`;
-$("canvaslink").href = `/api/review/${id}/canvas.png`;
+let shown = null;
 img.onload = () => { ov.width = img.naturalWidth; ov.height = img.naturalHeight; draw(); };
 
 function toImg(e) {
@@ -146,6 +145,11 @@ async function load() {
   let r;
   try { r = await api(`/review/${id}`); } catch (e) { $("title").textContent = e.message; return; }
   const i = r.item;
+  if (shown !== i.first_seen) {
+    shown = i.first_seen;
+    img.src = `/api/review/${id}/frame.jpg?v=${i.first_seen}`;
+    $("canvaslink").href = `/api/review/${id}/canvas.png?v=${i.first_seen}`;
+  }
   $("title").innerHTML = `Screen #${i.id} <span class="badge ${i.status}">${i.status}</span>`;
   $("meta").innerHTML = `<table>
     <tr><th>State</th><td>${esc(i.state)}</td></tr>

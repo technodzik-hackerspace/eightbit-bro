@@ -29,7 +29,7 @@ function render() {
   const shown = items.filter((i) => !sel.value || i.status === sel.value);
   document.getElementById("items").innerHTML = shown.map((i) => `
     <a class="card" href="/review/${i.id}">
-      <img loading="lazy" src="/api/review/${i.id}/frame.jpg" alt="">
+      <img loading="lazy" src="/api/review/${i.id}/frame.jpg?v=${i.first_seen}" alt="">
       <div class="body">
         <div class="row" style="justify-content:space-between"><b>#${i.id}</b><span class="badge ${i.status}">${i.status}</span></div>
         <div class="small">${esc(i.state)} · seen ${i.count}×${i.pois ? ` · ${i.pois} POI` : ""}</div>
