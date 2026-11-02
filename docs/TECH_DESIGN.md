@@ -465,8 +465,10 @@ password and Telegram details on the setup page. No secrets to prepare.
   everything is substituted from cache.nixos.org. The Rust package itself will be
   **cross-compiled** (fast, no emulation). v1 compiled on the Pi, which is too slow and risks
   OOM for Rust with 1.8 GB and no swap.
-- **Deploy (push-based during development):** `colmena apply -f deploy/hive.nix --on
-  nix-tetris-recorder` from the local checkout, so there's no need to commit or push to test
+- **Deploy (push-based during development):** `deploy/deploy.sh` (wraps `colmena apply -f
+  deploy/hive.nix --on nix-tetris-recorder`) from the local checkout. It writes its progress
+  (phase, crates compiled, commit, result) to `deploy.json` on the host over SSH, and the
+  dashboard's Live page shows it, so there's no need to commit or push to test
   (fixes v1's `rev = "main"` + placeholder hash problem). NixOS generations give rollback.
   Later: GitHub Actions CI/CD (build, test, then deploy or let the Pi pull a released version).
 - **Pi config moves** from `tetris-recorder/nix/` into this repo. The v1 service and module

@@ -28,6 +28,7 @@ pub fn router() -> Router<Arc<Context>> {
         .route("/events", get(events))
         .route("/preview.jpg", get(preview))
         .route("/config", get(config))
+        .route("/deploy", get(deploy))
         .route("/review", get(review_list).delete(review_delete_all))
         .route("/review/{id}", get(review_get).patch(review_update).delete(review_delete))
         .route("/review/{id}/frame.jpg", get(review_frame))
@@ -113,6 +114,15 @@ async fn preview(State(ctx): Ctx) -> Response {
     };
     ([(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, "no-store")], bytes.to_vec())
         .into_response()
+}
+
+/// The last deploy's progress, written onto the device by `deploy/deploy.py`.
+async fn deploy(State(ctx): Ctx) -> Json<serde_json::Value> {
+    let status = fs::read_to_string(ctx.data_dir.join("deploy.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or(serde_json::Value::Null);
+    Json(json!({ "deploy": status, "now": crate::live::now_ms() }))
 }
 
 async fn config(State(ctx): Ctx) -> Json<serde_json::Value> {

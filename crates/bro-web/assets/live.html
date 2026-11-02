@@ -4,6 +4,7 @@
 <body>
 <main>
   <div class="panel" id="restart" hidden style="margin-bottom:14px;border-color:var(--warn)"></div>
+  <div class="panel" id="deploy" hidden style="margin-bottom:14px"></div>
   <div class="cols">
     <div>
       <div class="panel">
@@ -79,12 +80,42 @@ function tickPreview() {
   if ($("pv").checked && !document.hidden) $("preview").src = `/api/preview.jpg?t=${Date.now()}`;
 }
 
+function duration(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+async function loadDeploy() {
+  const { deploy: d, now } = await api("/deploy");
+  const el = $("deploy");
+  if (!d) { el.hidden = true; return; }
+  el.hidden = false;
+  const what = `<code>${esc(d.commit)}</code>${d.dirty ? " (uncommitted changes)" : ""} · ${esc(d.subject)}`;
+  if (!d.finished) {
+    const pct = d.total ? Math.min(100, Math.round(100 * d.compiled / d.total)) : null;
+    const stale = now - d.updated > 30000 ? ` · <span style="color:var(--warn)">no update for ${duration(now - d.updated)}</span>` : "";
+    el.style.borderColor = "var(--accent)";
+    el.innerHTML = `<b>Deploying</b> ${what}<br>
+      <span class="small">${esc(d.phase)}${d.phase === "building" ? ` · ${d.compiled}${d.total ? ` / ~${d.total}` : ""} crates` : ""}
+      · ${duration(now - d.started)} elapsed${stale}</span>
+      <div class="bar"><div style="width:${d.phase === "activating" || d.phase === "copying to the Pi" ? 100 : pct ?? 5}%"></div></div>
+      <div class="muted small"><code>${esc(d.last_line)}</code></div>`;
+  } else {
+    const ok = d.result === "ok";
+    el.style.borderColor = ok ? "var(--line)" : "var(--bad)";
+    el.innerHTML = `<span class="small">Last deploy ${ok ? "✓" : `<b style="color:var(--bad)">${esc(d.result)}</b>`}: ${what}
+      · ${when(d.finished)} · took ${duration(d.finished - d.started)} · by ${esc(d.by)}</span>
+      ${ok ? "" : `<div class="muted small"><code>${esc(d.last_line)}</code></div>`}`;
+  }
+}
+
 stream({
   state: (p) => setState(p.path, p.since),
   event: (e) => { if ($("events").querySelector(".muted:only-child")) $("events").innerHTML = ""; addEvent(e, true); },
   review: () => refresh(),
 });
-refresh(); loadEvents(); tickPreview();
+refresh(); loadEvents(); tickPreview(); loadDeploy();
+setInterval(() => loadDeploy().catch(() => {}), 2000);
 setInterval(refresh, 2000);
 setInterval(tickPreview, 1000);
 setInterval(() => { $("since").textContent = ago(since); }, 500);
